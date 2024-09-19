@@ -1,5 +1,8 @@
 from pathlib import Path
+from typing import List, Tuple
+
 import pygame
+import random
 
 
 class AssetLoader:
@@ -20,10 +23,32 @@ class AssetLoader:
                 print(f"ERROR: {asset} is not in the `assets/` directory. Follow the instructions on the `README.md`  to resolve this.")
                 exit(1)
 
-        background = pygame.image.load(assets_dir.joinpath("SpaceShooterAssetPack_BackGrounds.png"))
+        self.background_image = pygame.image.load(assets_dir.joinpath("SpaceShooterAssetPack_BackGrounds.png"))
+        return
 
-        self.backgrounds = []
+
+class Background:
+
+    def __init__(self, 
+                 screen_width: int,
+                 screen_height: int,
+                 asset_loader: AssetLoader) -> None:
+
+        self.width = screen_width
+        self.height = screen_height
+
+        self.asset_loader = asset_loader
+        self.positions = []
+        self.surface = pygame.surface.Surface((screen_width, screen_height))
+
+        backgrounds = []
         for (x, y) in [(0, 0), (128, 256), (256, 256)]:
-            bg = background.subsurface((x, y, 128, 256))
-            self.backgrounds.append(bg)
+            backgrounds.append(asset_loader.background_image.subsurface((x, y, 128, 256)))
+
+        for x in range(0, screen_width, 128):
+            for y in range(0, screen_height, 256):
+                self.surface.blit(random.choice(backgrounds), (x, y))
+
+        return
+
 

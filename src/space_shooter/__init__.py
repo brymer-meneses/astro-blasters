@@ -1,18 +1,9 @@
-from space_shooter.assets import AssetLoader
-
+from space_shooter.assets import AssetLoader, Background
 import pygame
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-
-def render_background(screen: pygame.SurfaceType, asset_loader: AssetLoader) -> None:
-
-    for x in range(0, SCREEN_WIDTH, 128):
-        for y in range(0, SCREEN_HEIGHT, 256):
-            index = (x + y) % 3
-            screen.blit(asset_loader.backgrounds[index], (x, y))
-        
-    return
+SCROLL_SPEED = 1
 
 def main() -> None:
     asset_loader = AssetLoader()
@@ -21,8 +12,8 @@ def main() -> None:
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
-    screen.fill("black")
-    render_background(screen ,asset_loader)
+    bg = Background(SCREEN_WIDTH, SCREEN_HEIGHT, asset_loader)
+    scroll = 0
 
     running = True
     while running:
@@ -30,11 +21,14 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 running = False
 
-        pygame.display.flip()
+        scroll %= bg.surface.get_height()
 
-        clock.tick(60)  # limits FPS to 60
+        screen.blit(bg.surface, (0, scroll))
+        screen.blit(bg.surface, (0, scroll - bg.height))
+
+        scroll += SCROLL_SPEED
+
+        pygame.display.flip()
+        clock.tick(60)
 
     pygame.quit()
-
-    return
-
