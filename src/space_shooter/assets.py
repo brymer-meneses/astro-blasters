@@ -23,7 +23,7 @@ class AssetLoader:
         background = pygame.image.load(assets_dir.joinpath("SpaceShooterAssetPack_BackGrounds.png"))
 
         self.backgrounds = []
-        for (x, y) in [(0, 0), (128, 0), (256,0), (0, 256), (128, 256), (256, 256)]:
+        for (x, y) in [(0, 0), (128, 256), (256, 256)]:
             bg = background.subsurface((x, y, 128, 256))
             self.backgrounds.append(bg)
 
