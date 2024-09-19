@@ -21,18 +21,20 @@ def main() -> None:
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     clock = pygame.time.Clock()
 
+    screen.fill("black")
+    render_background(screen ,asset_loader)
+
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
 
-        screen.fill("black")
-        render_background(screen ,asset_loader)
-
         pygame.display.flip()
 
         clock.tick(60)  # limits FPS to 60
 
     pygame.quit()
+
+    return
 
