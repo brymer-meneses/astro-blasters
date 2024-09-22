@@ -12,11 +12,7 @@ We use the following freely available assets for this game.
 
 ### Building the Binary
 
-The [uv](https://astral.sh/blog/uv) tool is used to handle the dependencies. 
-To run the game simply invoke,
-
-```bash
-uv run game
 ```
-
+go run src/main.go
+```
 
