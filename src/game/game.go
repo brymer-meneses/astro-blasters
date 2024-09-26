@@ -1,8 +1,6 @@
 package game
 
 import (
-	"fmt"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -29,9 +27,7 @@ func NewGame(screen_width, screen_height int) Game {
 		CreateTiles(CreateTilesInput{x_start: 0, y_start: 0, width: 8, height: 8, x_count: 3, y_count: 1}).
 		BuildAsSpriteSheet()
 
-	fmt.Printf("ship %d\n", len(shipSpriteSheet.sprites))
-
-	player := NewPlayer(shipSpriteSheet, 10, 0)
+	player := NewPlayer(shipSpriteSheet, 20, 100)
 
 	return Game{
 		screen_width:  screen_width,
@@ -42,17 +38,12 @@ func NewGame(screen_width, screen_height int) Game {
 }
 
 func (g *Game) Update() error {
-	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		g.player.MoveLeft()
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		g.player.MoveRight()
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyUp) {
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
 		g.player.MoveUp()
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyDown) {
-		g.player.MoveDown()
+	} else if ebiten.IsKeyPressed(ebiten.KeyA) {
+		g.player.RotateClockwise()
+	} else if ebiten.IsKeyPressed(ebiten.KeyD) {
+		g.player.RotateCounterClockwise()
 	}
 
 	return nil
