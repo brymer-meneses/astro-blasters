@@ -15,11 +15,11 @@ func NewGame(screen_width, screen_height int) Game {
 	background := NewSpriteBuilder().
 		FromFile("../assets/SpaceShooterAssetPack_BackGrounds.png").
 		CreateTiles(CreateTilesInput{x_start: 0, y_start: 0, width: 128, height: 256, x_count: 3, y_count: 2}).
-		FilterTiles([]Tile{
-			{128, 0, 128, 256},
-			{256, 0, 128, 256},
-			{0, 256, 128, 256},
-		}).
+		FilterTiles(
+			Tile{128, 0, 128, 256},
+			Tile{256, 0, 128, 256},
+			Tile{0, 256, 128, 256},
+		).
 		BuildAsBackgroundSprite(screen_width, screen_height, 128, 256)
 
 	shipSpriteSheet := NewSpriteBuilder().
@@ -40,9 +40,11 @@ func NewGame(screen_width, screen_height int) Game {
 func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
 		g.player.MoveUp()
-	} else if ebiten.IsKeyPressed(ebiten.KeyA) {
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
 		g.player.RotateClockwise()
-	} else if ebiten.IsKeyPressed(ebiten.KeyD) {
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
 		g.player.RotateCounterClockwise()
 	}
 

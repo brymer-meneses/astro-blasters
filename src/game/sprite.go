@@ -66,7 +66,7 @@ func (s SpriteBuilder) CreateTiles(input CreateTilesInput) SpriteBuilder {
 	return s
 }
 
-func (s SpriteBuilder) FilterTiles(tiles_to_filter []Tile) SpriteBuilder {
+func (s SpriteBuilder) FilterTiles(tiles_to_filter ...Tile) SpriteBuilder {
 	s.tiles = slices.DeleteFunc(s.tiles, func(offset Tile) bool {
 		return slices.Contains(tiles_to_filter, offset)
 	})
