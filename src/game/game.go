@@ -13,7 +13,7 @@ type Game struct {
 
 func NewGame(screen_width, screen_height int) Game {
 	background := NewSpriteBuilder().
-		FromFile("../assets/SpaceShooterAssetPack_BackGrounds.png").
+		FromFile("../assets/SpaceShooterAssetPack/BackGrounds.png").
 		CreateTiles(CreateTilesInput{x_start: 0, y_start: 0, width: 128, height: 256, x_count: 3, y_count: 2}).
 		FilterTiles(
 			Tile{128, 0, 128, 256},
@@ -23,7 +23,7 @@ func NewGame(screen_width, screen_height int) Game {
 		BuildAsBackgroundSprite(screen_width, screen_height, 128, 256)
 
 	shipSpriteSheet := NewSpriteBuilder().
-		FromFile("../assets/SpaceShooterAssetPack_Ships.png").
+		FromFile("../assets/SpaceShooterAssetPack/Ships.png").
 		CreateTiles(CreateTilesInput{x_start: 0, y_start: 0, width: 8, height: 8, x_count: 3, y_count: 1}).
 		BuildAsSpriteSheet()
 
