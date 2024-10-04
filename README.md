@@ -2,16 +2,6 @@
 
 ## Running the Game
 
-### Getting the Assets
-
-We use the following freely available assets for this game. 
-
-- https://gvituri.itch.io/space-shooter
-    - Download the assets from this link, and put the `png` files inside the `assets` directory.
-
-
-### Running the Game
-
 To run the game natively, invoke the following command:
 
 ```bash
