@@ -2,9 +2,9 @@ package main
 
 import (
 	"log"
+	"space-shooter/game"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"space-shooter/game"
 )
 
 func main() {
@@ -19,4 +19,5 @@ func main() {
 	if err := ebiten.RunGame(&game); err != nil {
 		log.Fatal(err)
 	}
+
 }
