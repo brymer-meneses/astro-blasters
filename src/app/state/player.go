@@ -1,7 +1,8 @@
-package game
+package state
 
 import (
 	"math"
+	"space-shooter/app/sprite"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -13,7 +14,7 @@ const (
 )
 
 type Player struct {
-	sheet        SpriteSheet
+	sheet        sprite.SpriteSheet
 	currentFrame int
 
 	// The horizontal offset of the player.
@@ -25,7 +26,7 @@ type Player struct {
 	Angle float64
 }
 
-func NewPlayer(spriteSheet SpriteSheet, x float64, y float64) Player {
+func NewPlayer(spriteSheet sprite.SpriteSheet, x float64, y float64) Player {
 	return Player{sheet: spriteSheet, X: x, Y: y, currentFrame: FrameDefault}
 }
 
@@ -50,8 +51,8 @@ func (p *Player) Render(screen *ebiten.Image) {
 	op := &ebiten.DrawImageOptions{}
 
 	// The offset (x_0, y_0) for rotation (e.g., the center of the sprite)
-	x_0 := float64(p.sheet.sprites[p.currentFrame].image.Bounds().Dx()) / 2
-	y_0 := float64(p.sheet.sprites[p.currentFrame].image.Bounds().Dy()) / 2
+	x_0 := float64(p.sheet.Sprites[p.currentFrame].Image.Bounds().Dx()) / 2
+	y_0 := float64(p.sheet.Sprites[p.currentFrame].Image.Bounds().Dy()) / 2
 
 	// Step 1: Translate to offset (negative offset)
 	op.GeoM.Translate(-x_0, -y_0)
@@ -60,7 +61,7 @@ func (p *Player) Render(screen *ebiten.Image) {
 	op.GeoM.Scale(4, 4)
 	op.GeoM.Translate(p.X, p.Y)
 
-	img := p.sheet.sprites[p.currentFrame].image
+	img := p.sheet.Sprites[p.currentFrame].Image
 
 	// Draw the image onto the screen
 	screen.DrawImage(img, op)

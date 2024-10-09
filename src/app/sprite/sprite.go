@@ -1,4 +1,4 @@
-package game
+package sprite
 
 import (
 	"image"
@@ -11,11 +11,11 @@ import (
 )
 
 type Sprite struct {
-	image *ebiten.Image
+	Image *ebiten.Image
 }
 
 type SpriteSheet struct {
-	sprites []Sprite
+	Sprites []Sprite
 }
 
 type SpriteBuilder struct {
@@ -34,6 +34,14 @@ type Tile struct {
 	Height int
 }
 
+func (s *Sprite) Render(screen *ebiten.Image) {
+	s.RenderWithOptions(screen, &ebiten.DrawImageOptions{})
+}
+
+func (s *Sprite) RenderWithOptions(screen *ebiten.Image, options *ebiten.DrawImageOptions) {
+	screen.DrawImage(s.Image, options)
+}
+
 func (s SpriteBuilder) FromFile(file string) SpriteBuilder {
 	image, _, err := ebitenutil.NewImageFromFile(file)
 	if err != nil {
@@ -45,21 +53,21 @@ func (s SpriteBuilder) FromFile(file string) SpriteBuilder {
 }
 
 type CreateTilesInput struct {
-	x_start int
-	y_start int
-	width   int
-	height  int
-	x_count int
-	y_count int
+	X_start int
+	Y_start int
+	Width   int
+	Height  int
+	X_count int
+	Y_count int
 }
 
 func (s SpriteBuilder) CreateTiles(input CreateTilesInput) SpriteBuilder {
-	x_last := input.x_start + input.x_count*input.width
-	y_last := input.y_start + input.y_count*input.height
+	x_last := input.X_start + input.X_count*input.Width
+	y_last := input.Y_start + input.Y_count*input.Height
 
-	for x := input.x_start; x < x_last; x += input.width {
-		for y := input.y_start; y < y_last; y += input.height {
-			tile := Tile{X: x, Y: y, Width: input.width, Height: input.height}
+	for x := input.X_start; x < x_last; x += input.Width {
+		for y := input.Y_start; y < y_last; y += input.Height {
+			tile := Tile{X: x, Y: y, Width: input.Width, Height: input.Height}
 			s.tiles = append(s.tiles, tile)
 		}
 	}
@@ -78,10 +86,10 @@ func (s SpriteBuilder) BuildAsSpriteSheet() SpriteSheet {
 
 	for i, tile := range s.tiles {
 		rect := image.Rect(tile.X, tile.Y, tile.X+tile.Width, tile.Y+tile.Height)
-		sprites[i] = Sprite{image: s.image.SubImage(rect).(*ebiten.Image)}
+		sprites[i] = Sprite{Image: s.image.SubImage(rect).(*ebiten.Image)}
 	}
 
-	return SpriteSheet{sprites: sprites}
+	return SpriteSheet{Sprites: sprites}
 }
 
 func (s SpriteBuilder) BuildAsBackgroundSprite(background_width, background_height, tile_width, tile_height int) Sprite {
@@ -103,7 +111,7 @@ func (s SpriteBuilder) BuildAsBackgroundSprite(background_width, background_heig
 		}
 	}
 
-	return Sprite{image: new_image}
+	return Sprite{Image: new_image}
 }
 
 func NewSpriteBuilder() SpriteBuilder {
