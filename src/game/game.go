@@ -1,36 +1,36 @@
-package app
+package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"space-shooter/app/state"
+	"space-shooter/game/state"
 )
 
-type App struct {
+type Game struct {
 	screen_width  int
 	screen_height int
 	stateManager  state.StateManager
 }
 
-func NewApp(screen_width, screen_height int) App {
+func NewGame(screen_width, screen_height int) Game {
 	stateManager := state.NewStateManager(screen_width, screen_height)
 
-	return App{
+	return Game{
 		screen_width,
 		screen_height,
 		stateManager,
 	}
 }
 
-func (g *App) Update() error {
+func (g *Game) Update() error {
 	g.stateManager.HandleUpdate()
 
 	return nil
 }
 
-func (g *App) Draw(screen *ebiten.Image) {
+func (g *Game) Draw(screen *ebiten.Image) {
 	g.stateManager.Render(screen)
 }
 
-func (g *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
+func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return ebiten.WindowSize()
 }

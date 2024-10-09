@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"space-shooter/app/sprite"
+	"space-shooter/game/sprite"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"

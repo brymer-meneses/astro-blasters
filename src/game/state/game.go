@@ -2,7 +2,7 @@ package state
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"space-shooter/app/sprite"
+	"space-shooter/game/sprite"
 )
 
 type GameState struct {

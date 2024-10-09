@@ -2,7 +2,7 @@ package state
 
 import (
 	"math"
-	"space-shooter/app/sprite"
+	"space-shooter/game/sprite"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
