@@ -2,22 +2,13 @@ package main
 
 import (
 	"log"
-	"space-shooter/game"
-
-	"github.com/hajimehoshi/ebiten/v2"
+	"space-shooter"
+	"space-shooter/config"
 )
 
 func main() {
-
-	width, height := 1280, 720
-	ebiten.SetWindowSize(width, height)
-	ebiten.SetWindowTitle("Space Shooter")
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-
-	game := game.NewGame(width, height)
-
-	if err := ebiten.RunGame(&game); err != nil {
+	app := app.NewApp(config.AppConfig{ScreenWidth: 1080, ScreenHeight: 720})
+	if err := app.RunApp(); err != nil {
 		log.Fatal(err)
 	}
-
 }

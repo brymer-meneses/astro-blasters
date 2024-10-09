@@ -1,4 +1,7 @@
 
+tidy:
+	cd src && go mod tidy
+
 run-web:
 	cd src && go run cmd/web/main.go
 

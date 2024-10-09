@@ -1,4 +1,4 @@
-package sprite
+package assets
 
 import (
 	"image"
@@ -42,7 +42,7 @@ func (s *Sprite) RenderWithOptions(screen *ebiten.Image, options *ebiten.DrawIma
 	screen.DrawImage(s.Image, options)
 }
 
-func (s SpriteBuilder) FromFile(file string) SpriteBuilder {
+func (s *SpriteBuilder) FromFile(file string) *SpriteBuilder {
 	image, _, err := ebitenutil.NewImageFromFile(file)
 	if err != nil {
 		log.Fatal(err)
@@ -61,7 +61,7 @@ type CreateTilesInput struct {
 	Y_count int
 }
 
-func (s SpriteBuilder) CreateTiles(input CreateTilesInput) SpriteBuilder {
+func (s *SpriteBuilder) CreateTiles(input CreateTilesInput) *SpriteBuilder {
 	x_last := input.X_start + input.X_count*input.Width
 	y_last := input.Y_start + input.Y_count*input.Height
 
@@ -74,14 +74,14 @@ func (s SpriteBuilder) CreateTiles(input CreateTilesInput) SpriteBuilder {
 	return s
 }
 
-func (s SpriteBuilder) FilterTiles(tiles_to_filter ...Tile) SpriteBuilder {
+func (s *SpriteBuilder) FilterTiles(tiles_to_filter ...Tile) *SpriteBuilder {
 	s.tiles = slices.DeleteFunc(s.tiles, func(offset Tile) bool {
 		return slices.Contains(tiles_to_filter, offset)
 	})
 	return s
 }
 
-func (s SpriteBuilder) BuildAsSpriteSheet() SpriteSheet {
+func (s *SpriteBuilder) BuildAsSpriteSheet() SpriteSheet {
 	sprites := make([]Sprite, len(s.tiles))
 
 	for i, tile := range s.tiles {
@@ -92,7 +92,13 @@ func (s SpriteBuilder) BuildAsSpriteSheet() SpriteSheet {
 	return SpriteSheet{Sprites: sprites}
 }
 
-func (s SpriteBuilder) BuildAsBackgroundSprite(background_width, background_height, tile_width, tile_height int) Sprite {
+func (s *SpriteBuilder) BuildAsSprite(tile Tile) Sprite {
+	rect := image.Rect(tile.X, tile.Y, tile.X+tile.Width, tile.Y+tile.Height)
+	Image := s.image.SubImage(rect).(*ebiten.Image)
+	return Sprite{Image}
+}
+
+func (s *SpriteBuilder) BuildAsBackgroundSprite(background_width, background_height, tile_width, tile_height int) Sprite {
 	new_image := ebiten.NewImage(int(background_width), int(background_height))
 	subimages := make([]*ebiten.Image, len(s.tiles))
 
@@ -114,8 +120,8 @@ func (s SpriteBuilder) BuildAsBackgroundSprite(background_width, background_heig
 	return Sprite{Image: new_image}
 }
 
-func NewSpriteBuilder() SpriteBuilder {
-	return SpriteBuilder{
+func NewSpriteBuilder() *SpriteBuilder {
+	return &SpriteBuilder{
 		image: nil,
 	}
 }

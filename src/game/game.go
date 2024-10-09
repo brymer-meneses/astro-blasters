@@ -2,22 +2,26 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-	"space-shooter/game/state"
+	"space-shooter/assets"
+	"space-shooter/config"
 )
 
 type Game struct {
-	screen_width  int
-	screen_height int
-	stateManager  state.StateManager
+	stateManager SceneManager
+	assetManager *assets.AssetManager
+	config       *config.AppConfig
 }
 
-func NewGame(screen_width, screen_height int) Game {
-	stateManager := state.NewStateManager(screen_width, screen_height)
+func NewGame(screenWidth, screenHeight int) Game {
+	config := config.AppConfig{ScreenHeight: screenHeight, ScreenWidth: screenWidth}
+
+	assetManager := assets.NewAssetManager(&config)
+	stateManager := NewStateManager(&config, &assetManager)
 
 	return Game{
-		screen_width,
-		screen_height,
 		stateManager,
+		&assetManager,
+		&config,
 	}
 }
 
