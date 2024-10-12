@@ -13,15 +13,15 @@ type MenuScene struct {
 	assetManager *assets.AssetManager
 }
 
-func NewMenuScene(config *config.AppConfig, manager *assets.AssetManager) MenuScene {
-	return MenuScene{config, manager}
+func NewMenuScene(config *config.AppConfig, manager *assets.AssetManager) *MenuScene {
+	return &MenuScene{config, manager}
 }
 
 type FontFace struct {
 	text.GoTextFace
 }
 
-func (self *MenuScene) Render(screen *ebiten.Image) {
+func (self *MenuScene) Draw(screen *ebiten.Image) {
 	self.assetManager.Background.Render(screen)
 
 	msg := "Space Shooter"
@@ -44,8 +44,7 @@ func (self *MenuScene) Render(screen *ebiten.Image) {
 	text.Draw(screen, msg, &fontface, ops)
 }
 
-func (m *MenuScene) HandleUpdate() {
-
+func (self *MenuScene) Update() {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
 
 	}

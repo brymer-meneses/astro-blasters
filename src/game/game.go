@@ -2,37 +2,37 @@ package game
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
+
 	"space-shooter/assets"
 	"space-shooter/config"
+	"space-shooter/game/scenes"
 )
 
 type Game struct {
-	stateManager SceneManager
 	assetManager *assets.AssetManager
 	config       *config.AppConfig
+	scene        scenes.Scene
 }
 
 func NewGame(screenWidth, screenHeight int) Game {
 	config := config.AppConfig{ScreenHeight: screenHeight, ScreenWidth: screenWidth}
-
 	assetManager := assets.NewAssetManager(&config)
-	stateManager := NewStateManager(&config, &assetManager)
+	scene := scenes.NewGameScene(&config, &assetManager, 0)
 
 	return Game{
-		stateManager,
 		&assetManager,
 		&config,
+		scene,
 	}
 }
 
 func (g *Game) Update() error {
-	g.stateManager.HandleUpdate()
-
+	g.scene.Update()
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	g.stateManager.Render(screen)
+	g.scene.Draw(screen)
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {

@@ -2,8 +2,11 @@
 tidy:
 	cd src && go mod tidy
 
-run-web:
-	cd src && go run cmd/web/main.go
+run-client-web:
+	cd src && go run cmd/client/web/main.go
 
-run-native:
-	cd src && go run cmd/native/main.go 
+run-client-native:
+	cd src && go run cmd/client/native/main.go 
+
+run-server:
+	cd src && go run cmd/server.go
