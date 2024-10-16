@@ -14,14 +14,13 @@ type Game struct {
 	scene        scenes.Scene
 }
 
-func NewGame(screenWidth, screenHeight int) Game {
-	config := config.AppConfig{ScreenHeight: screenHeight, ScreenWidth: screenWidth}
-	assetManager := assets.NewAssetManager(&config)
-	scene := scenes.NewGameScene(&config, &assetManager, 0)
+func NewGame(config *config.AppConfig) Game {
+	assetManager := assets.NewAssetManager(config)
+	scene := scenes.NewGameScene(config, &assetManager, 0)
 
 	return Game{
 		&assetManager,
-		&config,
+		config,
 		scene,
 	}
 }

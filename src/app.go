@@ -8,10 +8,10 @@ import (
 )
 
 type App struct {
-	config config.AppConfig
+	config *config.AppConfig
 }
 
-func NewApp(config config.AppConfig) App {
+func NewApp(config *config.AppConfig) App {
 	return App{config}
 }
 
@@ -21,7 +21,7 @@ func (self *App) RunApp() error {
 	ebiten.SetWindowTitle("Space Shooter")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-	game := game.NewGame(width, height)
+	game := game.NewGame(self.config)
 
 	err := ebiten.RunGame(&game)
 

@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 )
 
 type Server struct {
@@ -38,13 +38,26 @@ func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.CloseNow()
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	var v interface{}
-	if err := wsjson.Read(ctx, c, &v); err != nil {
-		log.Fatal(err)
+	for {
+		_, sent, err := c.Read(ctx)
+		status := websocket.CloseStatus(err)
+
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			break
+		}
+
+		if status == websocket.StatusGoingAway || status == websocket.StatusAbnormalClosure {
+			break
+		}
+
+		if err != nil {
+			break
+		}
+
+		log.Print("Message %a", sent)
 	}
 
-	c.Close(websocket.StatusNormalClosure, "")
 }

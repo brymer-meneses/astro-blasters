@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	port := flag.String("port", "5500", "the port to host the server")
+	port := flag.String("port", "8080", "the port to host the server")
 	flag.Parse()
 
 	server := server.NewServer()
@@ -15,5 +15,4 @@ func main() {
 	if err := server.Start(*port); err != nil {
 		log.Fatal(err)
 	}
-
 }
