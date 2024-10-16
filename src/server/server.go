@@ -57,7 +57,7 @@ func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		log.Print("Message %a", sent)
+		log.Printf("Message %s\n", string(sent))
 	}
 
 }

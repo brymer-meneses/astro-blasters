@@ -18,30 +18,23 @@ type GameScene struct {
 	assetManager *assets.AssetManager
 	ecs          *ecs.ECS
 	connection   *websocket.Conn
+	playerId     component.PlayerId
 }
 
 func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId component.PlayerId) *GameScene {
-	world := donburi.NewWorld()
-	scene := &GameScene{assetManager: assetManager}
-
 	connection, _, err := websocket.Dial(context.Background(), config.ServerWebsocketURL, nil)
 
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	settings := world.Entry(world.Create(component.Settings))
-	donburi.SetValue(settings, component.Settings, component.SettingsData{
-		PlayerId: playerId,
-	})
-
-	scene.connection = connection
+	scene := &GameScene{assetManager: assetManager, playerId: 0, connection: connection}
 	scene.ecs =
-		ecs.NewECS(world).
+		ecs.NewECS(donburi.NewWorld()).
 			AddRenderer(0, scene.drawPlayers).
 			AddSystem(scene.movePlayers)
 
-	scene.createPlayer(playerId)
+	scene.createPlayer(component.PlayerId(0))
 	return scene
 }
 
@@ -113,14 +106,10 @@ func (self *GameScene) drawPlayers(ecs *ecs.ECS, screen *ebiten.Image) {
 }
 
 func (self *GameScene) movePlayers(ecs *ecs.ECS) {
-	donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
-	entry, _ := component.Settings.First(ecs.World)
-	settings := component.Settings.Get(entry)
-
 	for player := range query.Iter(ecs.World) {
-		if settings.PlayerId != component.Player.GetValue(player).Id {
+		if component.PlayerId(self.playerId) != component.Player.GetValue(player).Id {
 			continue
 		}
 
