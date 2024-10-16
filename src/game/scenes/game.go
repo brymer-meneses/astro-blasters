@@ -23,7 +23,6 @@ type GameScene struct {
 
 func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId component.PlayerId) *GameScene {
 	connection, _, err := websocket.Dial(context.Background(), config.ServerWebsocketURL, nil)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,8 +30,9 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, p
 	scene := &GameScene{assetManager: assetManager, playerId: 0, connection: connection}
 	scene.ecs =
 		ecs.NewECS(donburi.NewWorld()).
-			AddRenderer(0, scene.drawPlayers).
-			AddSystem(scene.movePlayers)
+			AddRenderer(0, scene.drawEnvironment).
+			AddSystem(scene.movePlayer).
+			AddSystem(scene.receiveServerUpdates)
 
 	scene.createPlayer(component.PlayerId(0))
 	return scene
@@ -83,7 +83,8 @@ func (self *GameScene) createPlayer(playerId component.PlayerId) {
 
 }
 
-func (self *GameScene) drawPlayers(ecs *ecs.ECS, screen *ebiten.Image) {
+// Draws the game environment.
+func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
 	for player := range query.Iter(self.ecs.World) {
@@ -105,7 +106,8 @@ func (self *GameScene) drawPlayers(ecs *ecs.ECS, screen *ebiten.Image) {
 	}
 }
 
-func (self *GameScene) movePlayers(ecs *ecs.ECS) {
+// Handles the movement of the player and sends it to the server.
+func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
 	for player := range query.Iter(ecs.World) {
@@ -126,5 +128,17 @@ func (self *GameScene) movePlayers(ecs *ecs.ECS) {
 			self.connection.Write(context.Background(), 1, []byte("Counterclockwise!"))
 			positionData.RotateCounterClockwise()
 		}
+	}
+}
+
+// Receives information from the server and updates the game state accordingly.
+func (self *GameScene) receiveServerUpdates(_ *ecs.ECS) {
+	for {
+		_, bytes, err := self.connection.Read(context.Background())
+		if err != nil {
+			break
+		}
+
+		log.Printf("%s\n", string(bytes))
 	}
 }
