@@ -8,8 +8,8 @@ type PlayerId int
 
 type PlayerData struct {
 	Name   string
-	Id     PlayerId
 	Health float64
+	Id     int
 	// Profile *ebiten.Image
 }
 
