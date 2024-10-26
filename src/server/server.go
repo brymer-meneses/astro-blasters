@@ -8,11 +8,10 @@ import (
 	"log"
 	"net/http"
 	"space-shooter/game/component"
+	"space-shooter/rpc"
 	"space-shooter/server/messages"
-	"space-shooter/transport"
 
 	"github.com/coder/websocket"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 )
@@ -23,7 +22,7 @@ type Server struct {
 	serveMux         http.ServeMux
 	connectedPlayers int
 	ecs              *ecs.ECS
-	channel          chan messages.BaseMessage
+	channel          chan rpc.BaseMessage
 }
 
 func NewServer() *Server {
@@ -31,7 +30,7 @@ func NewServer() *Server {
 	cs.serveMux.HandleFunc("/events/ws", cs.ws)
 	cs.serveMux.HandleFunc("/", cs.root)
 	cs.ecs = ecs.NewECS(donburi.NewWorld())
-	cs.channel = make(chan messages.BaseMessage)
+	cs.channel = make(chan rpc.BaseMessage)
 	return cs
 }
 
@@ -55,15 +54,22 @@ func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
 }
 
 func (self *Server) handleConnection(connection *websocket.Conn) {
-	transport := transport.FromConnection(connection)
+	defer connection.CloseNow()
+
+	ctx := context.Background()
+
 	playerId, err := self.getAvailablePlayerId()
 	if err != nil {
-		transport.SendMessage(messages.ErrorRoomFull{})
+		if err := rpc.SendMessage(ctx, connection, messages.ErrorRoomFull{}); err != nil {
+			log.Fatal(err)
+		}
 		return
 	}
 
 	position := self.registerPlayer(playerId)
-	err = transport.SendMessage(
+	err = rpc.SendMessage(
+		ctx,
+		connection,
 		messages.EstablishConnection{
 			PlayerId: playerId,
 			Position: *position,
@@ -74,52 +80,30 @@ func (self *Server) handleConnection(connection *websocket.Conn) {
 		log.Fatal(err)
 	}
 
-	ctx := context.Background()
-
 	// Handle client -> server updates
-	go func() {
-		defer connection.CloseNow()
-		for {
-			_, bytes, err := connection.Read(ctx)
-			status := websocket.CloseStatus(err)
-			if status == websocket.StatusGoingAway || status == websocket.StatusAbnormalClosure {
-				break
-			}
+	for {
+		var message rpc.BaseMessage
+		err := rpc.ReceiveMessage(ctx, connection, &message)
+		status := websocket.CloseStatus(err)
 
-			var message messages.BaseMessage
-			if err := msgpack.Unmarshal(bytes, &message); err != nil {
-				log.Printf("Invalid Message Format")
-				break
-			}
-
-			switch message.MessageType {
-			case "UpdatePosition":
-				var payload messages.UpdatePosition
-				if err := msgpack.Unmarshal(message.Payload, &payload); err != nil {
-					log.Fatal(err)
-				}
-				self.handleUpdatePosition(&payload)
-			}
-
-			// Publish this message to others
-			self.channel <- message
+		if status == websocket.StatusGoingAway || status == websocket.StatusAbnormalClosure {
+			break
 		}
-	}()
 
-	// Handle server -> client updates
-	go func() {
-		for {
-			message := <-self.channel
-			bytes, err := msgpack.Marshal(message)
-
-			if err != nil {
-				log.Printf("Invalid Message Format")
-				break
-			}
-
-			connection.Write(context.Background(), websocket.MessageBinary, bytes)
+		if err != nil {
+			break
 		}
-	}()
+
+		log.Printf("%+v", message.MessageType)
+
+		switch message.MessageType {
+		case "UpdatePosition":
+			var updatePosition messages.UpdatePosition
+			rpc.Cast(&message, &updatePosition)
+
+			self.handleUpdatePosition(&updatePosition)
+		}
+	}
 
 	log.Println("Connection ended")
 }

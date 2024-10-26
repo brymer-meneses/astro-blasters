@@ -1,15 +1,16 @@
 package scenes
 
 import (
+	"context"
 	"log"
 	"space-shooter/assets"
 	"space-shooter/config"
 	"space-shooter/game/component"
+	"space-shooter/rpc"
 	"space-shooter/server/messages"
-	"space-shooter/transport"
 
+	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
@@ -18,26 +19,32 @@ import (
 type GameScene struct {
 	assetManager *assets.AssetManager
 	ecs          *ecs.ECS
+	connection   *websocket.Conn
 	playerId     int
-	transport    *transport.Transport
 }
 
 func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId component.PlayerId) *GameScene {
-
-	transport, err := transport.Connect(config.ServerWebsocketURL)
+	ctx := context.Background()
+	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
 	if err != nil {
-		log.Fatalf("Failed to connect to %s\n", config.ServerWebsocketURL)
+		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
 	}
 
-	var EstablishConnection messages.EstablishConnection
-	if err := transport.ReceiveMessage(&EstablishConnection); err != nil {
+	var message rpc.BaseMessage
+	if err := rpc.ReceiveMessage(ctx, connection, &message); err != nil {
 		log.Fatal(err)
 	}
+	log.Printf("%+v", message)
+
+	log.Println(message.MessageType)
+
+	var establishConnection messages.EstablishConnection
+	rpc.Cast(&message, &establishConnection)
 
 	scene := &GameScene{
 		assetManager: assetManager,
-		playerId:     EstablishConnection.PlayerId,
-		transport:    transport,
+		playerId:     establishConnection.PlayerId,
+		connection:   connection,
 	}
 
 	scene.ecs =
@@ -45,7 +52,7 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, p
 			AddRenderer(0, scene.drawEnvironment).
 			AddSystem(scene.movePlayer)
 
-	scene.createPlayer(EstablishConnection.PlayerId, &EstablishConnection.Position)
+	scene.createPlayer(establishConnection.PlayerId, &establishConnection.Position)
 
 	// TODO: Make this work
 	// go scene.receiveServerUpdates()
@@ -121,10 +128,15 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
 	updatePosition := func(positionData *component.PositionData) {
-		self.transport.SendMessage(messages.UpdatePosition{
+		message := messages.UpdatePosition{
 			PlayerId: self.playerId,
 			Position: *positionData,
-		})
+		}
+
+		err := rpc.SendMessage(context.Background(), self.connection, message)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	for player := range query.Iter(ecs.World) {
@@ -151,22 +163,22 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 
 // Receives information from the server and updates the game state accordingly.
 func (self *GameScene) receiveServerUpdates() {
-	for {
-		var message messages.BaseMessage
-		if err := self.transport.ReceiveMessage(&message); err != nil {
-			return
-		}
-
-		switch message.MessageType {
-		case "UpdatePosition":
-			var updatePosition messages.UpdatePosition
-			if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
-				log.Fatal(err)
-			}
-			entry := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
-			component.Position.SetValue(entry, updatePosition.Position)
-		}
-	}
+	// for {
+	// 	var message messages.BaseMessage
+	// 	if err := self.transport.ReceiveMessage(&message); err != nil {
+	// 		return
+	// 	}
+	//
+	// 	switch message.MessageType {
+	// 	case "UpdatePosition":
+	// 		var updatePosition messages.UpdatePosition
+	// 		if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+	// 			log.Fatal(err)
+	// 		}
+	// 		entry := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
+	// 		component.Position.SetValue(entry, updatePosition.Position)
+	// 	}
+	// }
 }
 
 func findCorrespondingPlayer(ecs *ecs.ECS, playerId int) *donburi.Entry {

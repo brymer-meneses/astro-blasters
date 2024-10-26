@@ -1,15 +1,6 @@
 package messages
 
-import (
-	"space-shooter/game/component"
-
-	"github.com/vmihailenco/msgpack/v5"
-)
-
-type BaseMessage struct {
-	MessageType string
-	Payload     msgpack.RawMessage
-}
+import "space-shooter/game/component"
 
 type EstablishConnection struct {
 	PlayerId int
