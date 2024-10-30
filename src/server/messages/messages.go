@@ -1,17 +1,33 @@
 package messages
 
-import "space-shooter/game/component"
+import (
+	"space-shooter/game/component"
+)
+
+type PlayerId int
+
+type EnemyData struct {
+	PlayerId PlayerId
+	Position component.PositionData
+}
 
 type EstablishConnection struct {
-	PlayerId int
+	PlayerId PlayerId
+	Position component.PositionData
+
+	EnemyData []EnemyData
+}
+
+type PlayerConnected struct {
+	PlayerId PlayerId
 	Position component.PositionData
 }
 
 type UpdatePosition struct {
-	PlayerId int
+	PlayerId PlayerId
 	Position component.PositionData
 }
 
 type ErrorRoomFull struct {
-	PlayerId int
+	PlayerId PlayerId
 }

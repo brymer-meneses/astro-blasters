@@ -4,8 +4,6 @@ import (
 	"github.com/yohamta/donburi"
 )
 
-type PlayerId int
-
 type PlayerData struct {
 	Name   string
 	Health float64

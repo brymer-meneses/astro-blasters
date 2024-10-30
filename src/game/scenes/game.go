@@ -11,6 +11,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
@@ -20,10 +21,10 @@ type GameScene struct {
 	assetManager *assets.AssetManager
 	ecs          *ecs.ECS
 	connection   *websocket.Conn
-	playerId     int
+	playerId     messages.PlayerId
 }
 
-func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId component.PlayerId) *GameScene {
+func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId messages.PlayerId) *GameScene {
 	ctx := context.Background()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
 	if err != nil {
@@ -34,12 +35,11 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, p
 	if err := rpc.ReceiveMessage(ctx, connection, &message); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("%+v", message)
-
-	log.Println(message.MessageType)
 
 	var establishConnection messages.EstablishConnection
-	rpc.Cast(&message, &establishConnection)
+	if err := msgpack.Unmarshal(message.Payload, &establishConnection); err != nil {
+		log.Fatal(err)
+	}
 
 	scene := &GameScene{
 		assetManager: assetManager,
@@ -54,8 +54,11 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, p
 
 	scene.createPlayer(establishConnection.PlayerId, &establishConnection.Position)
 
-	// TODO: Make this work
-	// go scene.receiveServerUpdates()
+	for _, enemyData := range establishConnection.EnemyData {
+		scene.createPlayer(messages.PlayerId(enemyData.PlayerId), &enemyData.Position)
+	}
+
+	go scene.receiveServerUpdates()
 
 	return scene
 }
@@ -72,7 +75,7 @@ func (self *GameScene) Update() {
 	self.ecs.Update()
 }
 
-func (self *GameScene) createPlayer(playerId int, position *component.PositionData) {
+func (self *GameScene) createPlayer(playerId messages.PlayerId, position *component.PositionData) {
 	world := self.ecs.World
 	entity := world.Create(component.Player, component.Position, component.Sprite)
 	player := world.Entry(entity)
@@ -82,7 +85,7 @@ func (self *GameScene) createPlayer(playerId int, position *component.PositionDa
 		component.Player,
 		component.PlayerData{
 			Name: "Player One",
-			Id:   playerId,
+			Id:   int(playerId),
 		},
 	)
 
@@ -125,22 +128,22 @@ func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 
 // Handles the movement of the player and sends it to the server.
 func (self *GameScene) movePlayer(ecs *ecs.ECS) {
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
 	updatePosition := func(positionData *component.PositionData) {
-		message := messages.UpdatePosition{
-			PlayerId: self.playerId,
-			Position: *positionData,
-		}
+		message := rpc.NewBaseMessage(
+			messages.UpdatePosition{
+				PlayerId: self.playerId,
+				Position: *positionData,
+			})
 
-		err := rpc.SendMessage(context.Background(), self.connection, message)
-		if err != nil {
-			log.Fatal(err)
-		}
+		marshaled, _ := msgpack.Marshal(message)
+		self.connection.Write(context.Background(), websocket.MessageBinary, marshaled)
 	}
 
+	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
+
 	for player := range query.Iter(ecs.World) {
-		if self.playerId != component.Player.GetValue(player).Id {
+		if int(self.playerId) != component.Player.GetValue(player).Id {
 			continue
 		}
 
@@ -163,28 +166,43 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 
 // Receives information from the server and updates the game state accordingly.
 func (self *GameScene) receiveServerUpdates() {
-	// for {
-	// 	var message messages.BaseMessage
-	// 	if err := self.transport.ReceiveMessage(&message); err != nil {
-	// 		return
-	// 	}
-	//
-	// 	switch message.MessageType {
-	// 	case "UpdatePosition":
-	// 		var updatePosition messages.UpdatePosition
-	// 		if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
-	// 			log.Fatal(err)
-	// 		}
-	// 		entry := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
-	// 		component.Position.SetValue(entry, updatePosition.Position)
-	// 	}
-	// }
+	for {
+		var message rpc.BaseMessage
+		if err := rpc.ReceiveMessage(context.Background(), self.connection, &message); err != nil {
+			continue
+		}
+
+		switch message.MessageType {
+		case "UpdatePosition":
+			{
+				var updatePosition messages.UpdatePosition
+				if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+					continue
+				}
+
+				entry := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
+				if entry != nil {
+					component.Position.SetValue(entry, updatePosition.Position)
+				}
+			}
+		case "PlayerConnected":
+			{
+				var playerConnected messages.PlayerConnected
+				if err := msgpack.Unmarshal(message.Payload, &playerConnected); err != nil {
+					continue
+				}
+
+				self.createPlayer(playerConnected.PlayerId, &playerConnected.Position)
+			}
+		}
+	}
+
 }
 
-func findCorrespondingPlayer(ecs *ecs.ECS, playerId int) *donburi.Entry {
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
+func findCorrespondingPlayer(ecs *ecs.ECS, playerId messages.PlayerId) *donburi.Entry {
+	query := donburi.NewQuery(filter.Contains(component.Player))
 	for player := range query.Iter(ecs.World) {
-		if playerId != component.Player.GetValue(player).Id {
+		if int(playerId) == component.Player.GetValue(player).Id {
 			return player
 		}
 	}

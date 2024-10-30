@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"log"
 	"net/http"
@@ -12,17 +13,22 @@ import (
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
+	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
+	"github.com/yohamta/donburi/filter"
 )
-
-type PlayerId int
 
 type Server struct {
 	serveMux         http.ServeMux
 	connectedPlayers int
 	ecs              *ecs.ECS
-	channel          chan rpc.BaseMessage
+	channel          chan Event
+}
+
+type Event struct {
+	PlayerId messages.PlayerId
+	Message  rpc.BaseMessage
 }
 
 func NewServer() *Server {
@@ -30,7 +36,7 @@ func NewServer() *Server {
 	cs.serveMux.HandleFunc("/events/ws", cs.ws)
 	cs.serveMux.HandleFunc("/", cs.root)
 	cs.ecs = ecs.NewECS(donburi.NewWorld())
-	cs.channel = make(chan rpc.BaseMessage)
+	cs.channel = make(chan Event)
 	return cs
 }
 
@@ -53,32 +59,32 @@ func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
 	self.handleConnection(connection)
 }
 
-func (self *Server) handleConnection(connection *websocket.Conn) {
+func (self *Server) handleConnection(connection *websocket.Conn) error {
 	defer connection.CloseNow()
-
 	ctx := context.Background()
 
-	playerId, err := self.getAvailablePlayerId()
+	// Register the connected player.
+	playerId, err := self.establishConnection(ctx, connection)
 	if err != nil {
-		if err := rpc.SendMessage(ctx, connection, messages.ErrorRoomFull{}); err != nil {
-			log.Fatal(err)
+		return rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.ErrorRoomFull{}))
+	}
+
+	// Handle server -> client updates
+	go func() {
+		for {
+			event := <-self.channel
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			if event.PlayerId == playerId {
+				continue
+			}
+
+			if err := rpc.WriteMessage(ctx, connection, event.Message); err != nil {
+				log.Println(err)
+			}
 		}
-		return
-	}
-
-	position := self.registerPlayer(playerId)
-	err = rpc.SendMessage(
-		ctx,
-		connection,
-		messages.EstablishConnection{
-			PlayerId: playerId,
-			Position: *position,
-		},
-	)
-
-	if err != nil {
-		log.Fatal(err)
-	}
+	}()
 
 	// Handle client -> server updates
 	for {
@@ -93,58 +99,134 @@ func (self *Server) handleConnection(connection *websocket.Conn) {
 		if err != nil {
 			break
 		}
-
-		log.Printf("%+v", message.MessageType)
-
 		switch message.MessageType {
 		case "UpdatePosition":
 			var updatePosition messages.UpdatePosition
-			rpc.Cast(&message, &updatePosition)
-
+			if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+				continue
+			}
 			self.handleUpdatePosition(&updatePosition)
+		}
+		self.channel <- Event{
+			Message:  message,
+			PlayerId: playerId,
 		}
 	}
 
 	log.Println("Connection ended")
+	return nil
 }
 
-func (self *Server) getAvailablePlayerId() (int, error) {
+func (self *Server) getAvailablePlayerId() (messages.PlayerId, error) {
 	if self.connectedPlayers == 5 {
 		return 0, errors.New("Cannot have more than 5 players")
 	}
 
 	self.connectedPlayers += 1
-	return self.connectedPlayers - 1, nil
+	return messages.PlayerId(self.connectedPlayers - 1), nil
 }
 
 func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition) {
-	log.Printf("%+v", updatePosition)
+	player := self.findCorrespondPlayer(updatePosition.PlayerId)
+	if player == nil {
+		log.Printf("Cannot find player %d", updatePosition.PlayerId)
+		return
+	}
+	donburi.SetValue(player, component.Position, updatePosition.Position)
 }
 
-func (self *Server) registerPlayer(playerId int) *component.PositionData {
+func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (messages.PlayerId, error) {
+
+	// Find a valid playerId for the current connection
+	if self.connectedPlayers == 5 {
+		return -1, nil
+	}
+	self.connectedPlayers += 1
+	playerId := messages.PlayerId(self.connectedPlayers - 1)
+
+	// Set the position of the current connection
 	world := self.ecs.World
 	entity := world.Create(component.Player, component.Position)
 	player := world.Entry(entity)
+	{
+		donburi.SetValue(
+			player,
+			component.Player,
+			component.PlayerData{
+				Name: "Player One",
+				Id:   int(playerId),
+			},
+		)
+		donburi.SetValue(
+			player,
+			component.Position,
+			component.PositionData{
+				X:     500,
+				Y:     10,
+				Angle: 0,
+			},
+		)
+	}
 
-	donburi.SetValue(
-		player,
-		component.Player,
-		component.PlayerData{
-			Name: "Player One",
-			Id:   playerId,
-		},
+	position := component.Position.Get(player)
+	enemyData := self.getEnemyData(playerId)
+
+	establishConnection := rpc.NewBaseMessage(messages.EstablishConnection{
+		PlayerId:  messages.PlayerId(playerId),
+		Position:  *position,
+		EnemyData: enemyData,
+	})
+
+	err := rpc.WriteMessage(
+		ctx,
+		connection,
+		establishConnection,
 	)
 
-	// TODO: Make this random for each player, like make them sparse
-	donburi.SetValue(
-		player,
-		component.Position,
-		component.PositionData{
-			X:     500,
-			Y:     10,
-			Angle: 0,
-		},
-	)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if self.connectedPlayers > 1 {
+		// Tell the other players that a new player is connected
+		self.channel <- Event{
+			PlayerId: playerId,
+			Message: rpc.NewBaseMessage(messages.PlayerConnected{
+				Position: *position,
+				PlayerId: playerId,
+			}),
+		}
+	}
 
-	return component.Position.Get(player)
+	return playerId, nil
+}
+
+func (self *Server) findCorrespondPlayer(playerId messages.PlayerId) *donburi.Entry {
+	query := donburi.NewQuery(filter.Contains(component.Player))
+	for player := range query.Iter(self.ecs.World) {
+		if int(playerId) == component.Player.GetValue(player).Id {
+			return player
+		}
+	}
+	return nil
+}
+
+func (self *Server) getEnemyData(playerId messages.PlayerId) []messages.EnemyData {
+	// Get the position data of each player
+	enemyData := make([]messages.EnemyData, self.connectedPlayers-1)
+	query := donburi.NewQuery(filter.Contains(component.Player, component.Position))
+	i := 0
+
+	for player := range query.Iter(self.ecs.World) {
+		if playerId == messages.PlayerId(component.Player.Get(player).Id) {
+			continue
+		}
+
+		enemyData[i] = messages.EnemyData{
+			PlayerId: messages.PlayerId(component.Player.Get(player).Id),
+			Position: *component.Position.Get(player),
+		}
+		i++
+	}
+
+	return enemyData
 }
