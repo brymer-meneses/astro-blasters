@@ -120,6 +120,7 @@ func (self *Server) broadcastMessage(from messages.PlayerId, message rpc.BaseMes
 		}
 	}
 
+	// For each playerid that does not match the sender, send the message.
 	for playerId, playerConn := range self.players {
 		if from == playerId {
 			continue
@@ -157,6 +158,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	world := self.ecs.World
 	entity := world.Create(component.Player, component.Position)
 	player := world.Entry(entity)
+
 	component.Player.SetValue(
 		player,
 		component.PlayerData{
@@ -164,7 +166,6 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 			Id:   int(playerId),
 		},
 	)
-
 	component.Position.SetValue(
 		player,
 		component.PositionData{
@@ -176,7 +177,6 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 
 	position := component.Position.Get(player)
 	enemyData := self.getEnemyData(playerId)
-
 	err = rpc.WriteMessage(
 		ctx,
 		connection,
@@ -186,6 +186,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 			EnemyData: enemyData,
 		}),
 	)
+
 	if err != nil {
 		log.Fatal(err)
 	}
