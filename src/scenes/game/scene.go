@@ -1,12 +1,12 @@
-package scenes
+package game
 
 import (
 	"context"
 	"log"
 	"space-shooter/assets"
 	"space-shooter/config"
-	"space-shooter/game/component"
 	"space-shooter/rpc"
+	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
@@ -24,7 +24,7 @@ type GameScene struct {
 	playerId     messages.PlayerId
 }
 
-func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager, playerId messages.PlayerId) *GameScene {
+func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *GameScene {
 	ctx := context.Background()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
 	if err != nil {
@@ -80,27 +80,23 @@ func (self *GameScene) createPlayer(playerId messages.PlayerId, position *compon
 	entity := world.Create(component.Player, component.Position, component.Sprite)
 	player := world.Entry(entity)
 
-	donburi.SetValue(
+	component.Player.SetValue(
 		player,
-		component.Player,
 		component.PlayerData{
 			Name: "Player One",
 			Id:   int(playerId),
 		},
 	)
 
-	donburi.SetValue(
+	component.Position.SetValue(
 		player,
-		component.Position,
 		*position,
 	)
 
-	donburi.SetValue(
+	component.Sprite.SetValue(
 		player,
-		component.Sprite,
 		component.SpriteData{Image: self.assetManager.Ships[playerId].Image},
 	)
-
 }
 
 // Draws the game environment.

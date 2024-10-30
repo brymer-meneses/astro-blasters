@@ -1,4 +1,4 @@
-package scenes
+package menu_scene
 
 import (
 	"space-shooter/assets"

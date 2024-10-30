@@ -15,7 +15,7 @@ func main() {
 	}
 
 	app := app.NewApp(&config)
-	if err := app.RunApp(); err != nil {
+	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

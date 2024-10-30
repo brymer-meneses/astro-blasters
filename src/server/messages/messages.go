@@ -1,7 +1,7 @@
 package messages
 
 import (
-	"space-shooter/game/component"
+	"space-shooter/scenes/game/component"
 )
 
 type PlayerId int

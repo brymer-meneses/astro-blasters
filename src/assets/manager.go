@@ -30,7 +30,7 @@ func loadFont(filename string) (*text.GoTextFaceSource, error) {
 	return source, nil
 }
 
-func NewAssetManager(config *config.AppConfig) AssetManager {
+func NewAssetManager(config *config.AppConfig) *AssetManager {
 
 	fontSource, err := loadFont("../assets/MunroFont/munro-narrow.ttf")
 	if err != nil {
@@ -55,5 +55,5 @@ func NewAssetManager(config *config.AppConfig) AssetManager {
 
 	}
 
-	return AssetManager{background, fontSource, ships}
+	return &AssetManager{background, fontSource, ships}
 }

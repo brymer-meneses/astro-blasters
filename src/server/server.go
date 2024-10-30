@@ -9,8 +9,8 @@ import (
 
 	"log"
 	"net/http"
-	"space-shooter/game/component"
 	"space-shooter/rpc"
+	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
@@ -25,8 +25,6 @@ type Server struct {
 
 	ecs     *ecs.ECS
 	players map[messages.PlayerId]*playerConnection
-
-	quit chan messages.PlayerId
 }
 
 type playerConnection struct {
@@ -135,7 +133,7 @@ func (self *Server) getAvailablePlayerId() (messages.PlayerId, error) {
 	if connectedPlayers == 5 {
 		return 0, errors.New("Cannot have more than 5 players")
 	}
-	return messages.PlayerId(connectedPlayers + 1), nil
+	return messages.PlayerId(connectedPlayers), nil
 }
 
 func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition) {
@@ -159,25 +157,22 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	world := self.ecs.World
 	entity := world.Create(component.Player, component.Position)
 	player := world.Entry(entity)
-	{
-		donburi.SetValue(
-			player,
-			component.Player,
-			component.PlayerData{
-				Name: "Player One",
-				Id:   int(playerId),
-			},
-		)
-		donburi.SetValue(
-			player,
-			component.Position,
-			component.PositionData{
-				X:     500,
-				Y:     10,
-				Angle: 0,
-			},
-		)
-	}
+	component.Player.SetValue(
+		player,
+		component.PlayerData{
+			Name: "Player One",
+			Id:   int(playerId),
+		},
+	)
+
+	component.Position.SetValue(
+		player,
+		component.PositionData{
+			X:     500,
+			Y:     10,
+			Angle: 0,
+		},
+	)
 
 	position := component.Position.Get(player)
 	enemyData := self.getEnemyData(playerId)
