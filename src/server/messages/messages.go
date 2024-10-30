@@ -23,6 +23,10 @@ type PlayerConnected struct {
 	Position component.PositionData
 }
 
+type PlayerDisconnected struct {
+	PlayerId PlayerId
+}
+
 type UpdatePosition struct {
 	PlayerId PlayerId
 	Position component.PositionData
