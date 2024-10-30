@@ -4,7 +4,7 @@ import (
 	"space-shooter/assets"
 	"space-shooter/config"
 	"space-shooter/scenes"
-	"space-shooter/scenes/game"
+	"space-shooter/scenes/menu"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -12,13 +12,20 @@ import (
 type App struct {
 	config       *config.AppConfig
 	assetManager *assets.AssetManager
-	scene        scenes.Scene
+
+	sceneDispatcher *scenes.SceneDispatcher
+	scene           scenes.Scene
 }
 
-func NewApp(config *config.AppConfig) App {
+func NewApp(config *config.AppConfig) *App {
 	assetManager := assets.NewAssetManager(config)
-	scene := game.NewGameScene(config, assetManager)
-	return App{config, assetManager, scene}
+	scene := menu.NewMenuScene(config, assetManager)
+	return &App{
+		sceneDispatcher: scenes.NewSceneDispatcher(),
+		config:          config,
+		scene:           scene,
+		assetManager:    assetManager,
+	}
 }
 
 func (self *App) Run() error {
@@ -27,15 +34,22 @@ func (self *App) Run() error {
 	ebiten.SetWindowTitle("Space Shooter")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
-	if err := ebiten.RunGame(self); err != nil {
-		return err
-	}
+	// Handle scene dispatch.
+	go func() {
+		for {
+			select {
+			case scene := <-self.sceneDispatcher.Channel:
+				self.scene = scene
+				self.sceneDispatcher.Reset()
+			}
+		}
+	}()
 
-	return nil
+	return ebiten.RunGame(self)
 }
 
 func (self *App) Update() error {
-	self.scene.Update()
+	self.scene.Update(self.sceneDispatcher)
 	return nil
 }
 

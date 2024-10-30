@@ -1,8 +1,10 @@
-package menu_scene
+package menu
 
 import (
 	"space-shooter/assets"
 	"space-shooter/config"
+	"space-shooter/scenes"
+	"space-shooter/scenes/game"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -22,6 +24,7 @@ type FontFace struct {
 }
 
 func (self *MenuScene) Draw(screen *ebiten.Image) {
+	screen.Clear()
 	self.assetManager.Background.Render(screen)
 
 	msg := "Space Shooter"
@@ -44,8 +47,8 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 	text.Draw(screen, msg, &fontface, ops)
 }
 
-func (self *MenuScene) Update() {
+func (self *MenuScene) Update(dispatcher *scenes.SceneDispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
-
+		dispatcher.DispatchScene(game.NewGameScene(self.config, self.assetManager))
 	}
 }

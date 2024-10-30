@@ -41,3 +41,11 @@ func ReceiveMessage(ctx context.Context, conn *websocket.Conn, message *BaseMess
 	}
 	return msgpack.Unmarshal(bytes, message)
 }
+
+func ReceiveExpectedMessage[ExpectedMessage any](ctx context.Context, conn *websocket.Conn, out *ExpectedMessage) error {
+	var baseMessage BaseMessage
+	if err := ReceiveMessage(ctx, conn, &baseMessage); err != nil {
+		return err
+	}
+	return msgpack.Unmarshal(baseMessage.Payload, out)
+}

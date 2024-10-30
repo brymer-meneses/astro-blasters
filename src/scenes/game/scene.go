@@ -6,6 +6,7 @@ import (
 	"space-shooter/assets"
 	"space-shooter/config"
 	"space-shooter/rpc"
+	"space-shooter/scenes"
 	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
 
@@ -31,19 +32,14 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
 	}
 
-	var message rpc.BaseMessage
-	if err := rpc.ReceiveMessage(ctx, connection, &message); err != nil {
-		log.Fatal(err)
-	}
-
-	var establishConnection messages.EstablishConnection
-	if err := msgpack.Unmarshal(message.Payload, &establishConnection); err != nil {
+	var message messages.EstablishConnection
+	if err := rpc.ReceiveExpectedMessage(ctx, connection, &message); err != nil {
 		log.Fatal(err)
 	}
 
 	scene := &GameScene{
 		assetManager: assetManager,
-		playerId:     establishConnection.PlayerId,
+		playerId:     message.PlayerId,
 		connection:   connection,
 	}
 
@@ -52,14 +48,13 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 			AddRenderer(0, scene.drawEnvironment).
 			AddSystem(scene.movePlayer)
 
-	scene.createPlayer(establishConnection.PlayerId, &establishConnection.Position)
+	scene.spawnPlayer(message.PlayerId, &message.Position)
 
-	for _, enemyData := range establishConnection.EnemyData {
-		scene.createPlayer(messages.PlayerId(enemyData.PlayerId), &enemyData.Position)
+	for _, enemyData := range message.EnemyData {
+		scene.spawnPlayer(messages.PlayerId(enemyData.PlayerId), &enemyData.Position)
 	}
 
 	go scene.receiveServerUpdates()
-
 	return scene
 }
 
@@ -71,11 +66,12 @@ func (self *GameScene) Draw(screen *ebiten.Image) {
 	self.ecs.Draw(screen)
 }
 
-func (self *GameScene) Update() {
+func (self *GameScene) Update(dispatcher *scenes.SceneDispatcher) {
 	self.ecs.Update()
 }
 
-func (self *GameScene) createPlayer(playerId messages.PlayerId, position *component.PositionData) {
+// Spawns the player in the game.
+func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *component.PositionData) {
 	world := self.ecs.World
 	entity := world.Create(component.Player, component.Position, component.Sprite)
 	player := world.Entry(entity)
@@ -188,13 +184,14 @@ func (self *GameScene) receiveServerUpdates() {
 					continue
 				}
 
-				self.createPlayer(playerConnected.PlayerId, &playerConnected.Position)
+				self.spawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
 			}
 		}
 	}
 
 }
 
+// Returns the ecs entry given the playerId.
 func findCorrespondingPlayer(ecs *ecs.ECS, playerId messages.PlayerId) *donburi.Entry {
 	query := donburi.NewQuery(filter.Contains(component.Player))
 	for player := range query.Iter(ecs.World) {
