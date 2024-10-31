@@ -41,7 +41,6 @@ func NewServer() *Server {
 	s := &Server{}
 	s.players = make(map[messages.PlayerId]*playerConnection)
 	s.serveMux.HandleFunc("/events/ws", s.ws)
-	s.serveMux.HandleFunc("/", s.root)
 
 	s.ecs = ecs.NewECS(donburi.NewWorld())
 	return s
@@ -50,10 +49,6 @@ func NewServer() *Server {
 func (self *Server) Start(port string) error {
 	log.Printf("Listening at %s", port)
 	return http.ListenAndServe(":"+port, &self.serveMux)
-}
-
-func (self *Server) root(w http.ResponseWriter, _ *http.Request) {
-	fmt.Fprintf(w, "Hello world!")
 }
 
 func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
@@ -138,7 +133,7 @@ func (self *Server) getAvailablePlayerId() (messages.PlayerId, error) {
 }
 
 func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition) {
-	player := self.findCorrespondPlayer(updatePosition.PlayerId)
+	player := self.findCorrespondingPlayer(updatePosition.PlayerId)
 	if player == nil {
 		log.Printf("Cannot find player %d", updatePosition.PlayerId)
 		return
@@ -199,7 +194,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	return playerId, nil
 }
 
-func (self *Server) findCorrespondPlayer(playerId messages.PlayerId) *donburi.Entry {
+func (self *Server) findCorrespondingPlayer(playerId messages.PlayerId) *donburi.Entry {
 	query := donburi.NewQuery(filter.Contains(component.Player))
 	for player := range query.Iter(self.ecs.World) {
 		if int(playerId) == component.Player.GetValue(player).Id {

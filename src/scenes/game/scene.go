@@ -99,21 +99,23 @@ func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *compone
 func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
+	// Loop each player
 	for player := range query.Iter(self.ecs.World) {
 		sprite := component.Sprite.Get(player)
 		position := component.Position.Get(player)
 
 		op := &ebiten.DrawImageOptions{}
 
+		// Center the texture
 		x_0 := float64(sprite.Image.Bounds().Dx()) / 2
 		y_0 := float64(sprite.Image.Bounds().Dy()) / 2
-
 		op.GeoM.Translate(-x_0, -y_0)
 
 		op.GeoM.Rotate(position.Angle)
 		op.GeoM.Scale(4, 4)
 		op.GeoM.Translate(position.X, position.Y)
 
+		// Render at this position
 		screen.DrawImage(sprite.Image, op)
 	}
 }
@@ -128,8 +130,7 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 				Position: *positionData,
 			})
 
-		marshaled, _ := msgpack.Marshal(message)
-		self.connection.Write(context.Background(), websocket.MessageBinary, marshaled)
+		rpc.WriteMessage(context.Background(), self.connection, message)
 	}
 
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
