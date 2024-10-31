@@ -50,5 +50,6 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 func (self *MenuScene) Update(dispatcher *scenes.SceneDispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
 		dispatcher.DispatchScene(game.NewGameScene(self.config, self.assetManager))
+		dispatcher.Reset()
 	}
 }

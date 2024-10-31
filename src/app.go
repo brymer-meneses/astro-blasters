@@ -35,15 +35,7 @@ func (self *App) Run() error {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	// Handle scene dispatch.
-	go func() {
-		for {
-			select {
-			case scene := <-self.sceneDispatcher.Channel:
-				self.scene = scene
-				self.sceneDispatcher.Reset()
-			}
-		}
-	}()
+	go self.sceneDispatcher.CheckDispatch(self)
 
 	return ebiten.RunGame(self)
 }
@@ -59,4 +51,8 @@ func (self *App) Draw(screen *ebiten.Image) {
 
 func (self *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return ebiten.WindowSize()
+}
+
+func (self *App) ChangeScene(scene scenes.Scene) {
+	self.scene = scene
 }

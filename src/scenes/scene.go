@@ -12,19 +12,32 @@ type Scene interface {
 }
 
 type SceneDispatcher struct {
-	Channel chan Scene
+	channel chan Scene
 	once    sync.Once
 }
 
 func NewSceneDispatcher() *SceneDispatcher {
 	return &SceneDispatcher{
-		Channel: make(chan Scene),
+		channel: make(chan Scene, 1),
+	}
+}
+
+type app interface {
+	ChangeScene(scene Scene)
+}
+
+func (self *SceneDispatcher) CheckDispatch(app app) {
+	for {
+		select {
+		case scene := <-self.channel:
+			app.ChangeScene(scene)
+		}
 	}
 }
 
 func (self *SceneDispatcher) DispatchScene(scene Scene) {
 	self.once.Do(func() {
-		self.Channel <- scene
+		self.channel <- scene
 	})
 }
 

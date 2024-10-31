@@ -37,7 +37,7 @@ func WriteMessage(ctx context.Context, conn *websocket.Conn, message BaseMessage
 func ReceiveMessage(ctx context.Context, conn *websocket.Conn, message *BaseMessage) error {
 	_, bytes, err := conn.Read(ctx)
 	if err != nil {
-		return nil
+		return err
 	}
 	return msgpack.Unmarshal(bytes, message)
 }
