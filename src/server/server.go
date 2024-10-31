@@ -68,7 +68,7 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 	// Register the connected player.
 	playerId, err := self.establishConnection(ctx, connection)
 	if err != nil {
-		return rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.ErrorRoomFull{}))
+		return err
 	}
 
 	for {
@@ -144,7 +144,7 @@ func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition
 func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (messages.PlayerId, error) {
 	playerId, err := self.getAvailablePlayerId()
 	if err != nil {
-		return -1, err
+		return -1, rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.EstablishConnection{IsRoomFull: true}))
 	}
 
 	self.players[playerId] = &playerConnection{conn: connection}
@@ -176,9 +176,10 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		ctx,
 		connection,
 		rpc.NewBaseMessage(messages.EstablishConnection{
-			PlayerId:  messages.PlayerId(playerId),
-			Position:  *position,
-			EnemyData: enemyData,
+			PlayerId:   messages.PlayerId(playerId),
+			Position:   *position,
+			EnemyData:  enemyData,
+			IsRoomFull: false,
 		}),
 	)
 

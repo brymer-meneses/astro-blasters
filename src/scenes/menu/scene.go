@@ -5,6 +5,7 @@ import (
 	"space-shooter/config"
 	"space-shooter/scenes"
 	"space-shooter/scenes/game"
+	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -13,10 +14,11 @@ import (
 type MenuScene struct {
 	config       *config.AppConfig
 	assetManager *assets.AssetManager
+	once         sync.Once
 }
 
 func NewMenuScene(config *config.AppConfig, manager *assets.AssetManager) *MenuScene {
-	return &MenuScene{config, manager}
+	return &MenuScene{config: config, assetManager: manager}
 }
 
 type FontFace struct {
@@ -49,7 +51,9 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 
 func (self *MenuScene) Update(dispatcher *scenes.SceneDispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
-		dispatcher.DispatchScene(game.NewGameScene(self.config, self.assetManager))
-		dispatcher.Reset()
+		self.once.Do(
+			func() {
+				dispatcher.DispatchScene(game.NewGameScene(self.config, self.assetManager))
+			})
 	}
 }

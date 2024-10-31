@@ -12,8 +12,9 @@ type EnemyData struct {
 }
 
 type EstablishConnection struct {
-	PlayerId PlayerId
-	Position component.PositionData
+	IsRoomFull bool
+	PlayerId   PlayerId
+	Position   component.PositionData
 
 	EnemyData []EnemyData
 }
@@ -30,8 +31,4 @@ type PlayerDisconnected struct {
 type UpdatePosition struct {
 	PlayerId PlayerId
 	Position component.PositionData
-}
-
-type ErrorRoomFull struct {
-	PlayerId PlayerId
 }

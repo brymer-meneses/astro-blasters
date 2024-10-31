@@ -1,8 +1,6 @@
 package scenes
 
 import (
-	"sync"
-
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -13,7 +11,6 @@ type Scene interface {
 
 type SceneDispatcher struct {
 	channel chan Scene
-	once    sync.Once
 }
 
 func NewSceneDispatcher() *SceneDispatcher {
@@ -36,11 +33,5 @@ func (self *SceneDispatcher) CheckDispatch(app app) {
 }
 
 func (self *SceneDispatcher) DispatchScene(scene Scene) {
-	self.once.Do(func() {
-		self.channel <- scene
-	})
-}
-
-func (self *SceneDispatcher) Reset() {
-	self.once = sync.Once{}
+	self.channel <- scene
 }

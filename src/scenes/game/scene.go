@@ -37,6 +37,10 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 		log.Fatal(err)
 	}
 
+	if message.IsRoomFull {
+		log.Fatal("Room is full")
+	}
+
 	scene := &GameScene{
 		assetManager: assetManager,
 		playerId:     message.PlayerId,
