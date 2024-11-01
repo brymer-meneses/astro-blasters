@@ -23,6 +23,8 @@ type GameScene struct {
 	ecs          *ecs.ECS
 	connection   *websocket.Conn
 	playerId     messages.PlayerId
+
+	camera *Camera
 }
 
 func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *GameScene {
@@ -45,6 +47,7 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 		assetManager: assetManager,
 		playerId:     message.PlayerId,
 		connection:   connection,
+		camera:       NewCamera(0, 0, config),
 	}
 
 	scene.ecs =
@@ -53,6 +56,9 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 			AddSystem(scene.movePlayer)
 
 	scene.spawnPlayer(message.PlayerId, &message.Position)
+
+	// Follow the player.
+	scene.camera.FocusTarget(message.Position)
 
 	for _, enemyData := range message.EnemyData {
 		scene.spawnPlayer(messages.PlayerId(enemyData.PlayerId), &enemyData.Position)
@@ -64,7 +70,6 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 
 func (self *GameScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-	self.assetManager.Background.Render(screen)
 
 	self.ecs.DrawLayer(0, screen)
 	self.ecs.Draw(screen)
@@ -87,12 +92,10 @@ func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *compone
 			Id:   int(playerId),
 		},
 	)
-
 	component.Position.SetValue(
 		player,
 		*position,
 	)
-
 	component.Sprite.SetValue(
 		player,
 		component.SpriteData{Image: self.assetManager.Ships[playerId].Image},
@@ -101,6 +104,13 @@ func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *compone
 
 // Draws the game environment.
 func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
+
+	// Draw the background
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(self.camera.X, self.camera.Y)
+
+	self.assetManager.Background.RenderWithOptions(screen, opts)
+
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
 	// Loop each player
@@ -108,19 +118,20 @@ func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 		sprite := component.Sprite.Get(player)
 		position := component.Position.Get(player)
 
-		op := &ebiten.DrawImageOptions{}
+		opts := &ebiten.DrawImageOptions{}
 
 		// Center the texture
 		x_0 := float64(sprite.Image.Bounds().Dx()) / 2
 		y_0 := float64(sprite.Image.Bounds().Dy()) / 2
-		op.GeoM.Translate(-x_0, -y_0)
+		opts.GeoM.Translate(-x_0, -y_0)
 
-		op.GeoM.Rotate(position.Angle)
-		op.GeoM.Scale(4, 4)
-		op.GeoM.Translate(position.X, position.Y)
+		opts.GeoM.Rotate(position.Angle)
+		opts.GeoM.Scale(4, 4)
+		opts.GeoM.Translate(position.X, position.Y)
+		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
 
 		// Render at this position
-		screen.DrawImage(sprite.Image, op)
+		screen.DrawImage(sprite.Image, opts)
 	}
 }
 
@@ -135,6 +146,7 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 			})
 
 		rpc.WriteMessage(context.Background(), self.connection, message)
+		self.camera.FocusTarget(*positionData)
 	}
 
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))

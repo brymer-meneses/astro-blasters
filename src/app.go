@@ -29,8 +29,7 @@ func NewApp(config *config.AppConfig) *App {
 }
 
 func (self *App) Run() error {
-	width, height := 1280, 720
-	ebiten.SetWindowSize(width, height)
+	ebiten.SetWindowSize(self.config.ScreenWidth, self.config.ScreenHeight)
 	ebiten.SetWindowTitle("Space Shooter")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
@@ -50,7 +49,7 @@ func (self *App) Draw(screen *ebiten.Image) {
 }
 
 func (self *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return ebiten.WindowSize()
+	return self.config.ScreenWidth, self.config.ScreenHeight
 }
 
 func (self *App) ChangeScene(scene scenes.Scene) {

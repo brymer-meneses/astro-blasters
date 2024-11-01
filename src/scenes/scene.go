@@ -20,7 +20,7 @@ func NewSceneDispatcher() *SceneDispatcher {
 }
 
 type app interface {
-	ChangeScene(scene Scene)
+	ChangeScene(scenes Scene)
 }
 
 func (self *SceneDispatcher) CheckDispatch(app app) {
