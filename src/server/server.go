@@ -164,8 +164,8 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	component.Position.SetValue(
 		player,
 		component.PositionData{
-			X:     500,
-			Y:     10,
+			X:     0,
+			Y:     0,
 			Angle: 0,
 		},
 	)

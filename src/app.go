@@ -18,7 +18,7 @@ type App struct {
 }
 
 func NewApp(config *config.AppConfig) *App {
-	assetManager := assets.NewAssetManager(config)
+	assetManager := assets.NewAssetManager()
 	scene := menu.NewMenuScene(config, assetManager)
 	return &App{
 		sceneDispatcher: scenes.NewSceneDispatcher(),

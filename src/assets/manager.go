@@ -4,9 +4,13 @@ import (
 	"bufio"
 	"log"
 	"os"
-	"space-shooter/config"
 
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
+)
+
+const (
+	MapWidth  = 4000
+	MapHeight = 4000
 )
 
 type AssetManager struct {
@@ -30,7 +34,7 @@ func loadFont(filename string) (*text.GoTextFaceSource, error) {
 	return source, nil
 }
 
-func NewAssetManager(config *config.AppConfig) *AssetManager {
+func NewAssetManager() *AssetManager {
 
 	fontSource, err := loadFont("../assets/MunroFont/munro-narrow.ttf")
 	if err != nil {
@@ -45,7 +49,7 @@ func NewAssetManager(config *config.AppConfig) *AssetManager {
 			Tile{X: 256, Y: 0, Width: 128, Height: 256},
 			Tile{X: 0, Y: 256, Width: 128, Height: 256},
 		).
-		BuildAsBackgroundSprite(config.ScreenWidth, config.ScreenHeight, 128, 256)
+		BuildAsBackgroundSprite(MapWidth, MapHeight, 128, 256)
 
 	ships := make([]Sprite, 5)
 	for i := 0; i < 5; i += 1 {

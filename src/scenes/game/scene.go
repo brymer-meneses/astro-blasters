@@ -52,7 +52,7 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 
 	scene.ecs =
 		ecs.NewECS(donburi.NewWorld()).
-			AddRenderer(0, scene.drawEnvironment).
+			AddRenderer(ecs.LayerDefault, scene.drawEnvironment).
 			AddSystem(scene.movePlayer)
 
 	scene.spawnPlayer(message.PlayerId, &message.Position)
@@ -71,7 +71,7 @@ func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *
 func (self *GameScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
 
-	self.ecs.DrawLayer(0, screen)
+	self.ecs.DrawLayer(ecs.LayerDefault, screen)
 	self.ecs.Draw(screen)
 }
 
@@ -105,24 +105,23 @@ func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *compone
 // Draws the game environment.
 func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 
-	// Draw the background
+	// Draw the background.
 	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(-assets.MapWidth/2, -assets.MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
-
 	self.assetManager.Background.RenderWithOptions(screen, opts)
 
+	// Loop through each player and draw each of them.
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-
-	// Loop each player
 	for player := range query.Iter(self.ecs.World) {
 		sprite := component.Sprite.Get(player)
 		position := component.Position.Get(player)
 
-		opts := &ebiten.DrawImageOptions{}
-
 		// Center the texture
 		x_0 := float64(sprite.Image.Bounds().Dx()) / 2
 		y_0 := float64(sprite.Image.Bounds().Dy()) / 2
+
+		opts := &ebiten.DrawImageOptions{}
 		opts.GeoM.Translate(-x_0, -y_0)
 
 		opts.GeoM.Rotate(position.Angle)
