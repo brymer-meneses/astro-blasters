@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"reflect"
+	"sync"
 
 	"github.com/coder/websocket"
 	"github.com/vmihailenco/msgpack/v5"
@@ -12,6 +13,14 @@ import (
 type BaseMessage struct {
 	MessageType string
 	Payload     msgpack.RawMessage
+}
+
+var bufferPool = sync.Pool{
+	New: func() interface{} {
+		// Create a new buffer if one isn't available in the pool.
+		// This example uses a buffer with a size of 4096 bytes (4KB).
+		return make([]byte, 4096)
+	},
 }
 
 func NewBaseMessage(message any) BaseMessage {
@@ -35,11 +44,20 @@ func WriteMessage(ctx context.Context, conn *websocket.Conn, message BaseMessage
 }
 
 func ReceiveMessage(ctx context.Context, conn *websocket.Conn, message *BaseMessage) error {
-	_, bytes, err := conn.Read(ctx)
+	buffer := bufferPool.Get().([]byte)
+	defer bufferPool.Put(buffer)
+
+	_, reader, err := conn.Reader(ctx)
 	if err != nil {
 		return err
 	}
-	return msgpack.Unmarshal(bytes, message)
+
+	n, err := reader.Read(buffer)
+	if err != nil {
+		return err
+	}
+
+	return msgpack.Unmarshal(buffer[:n], message)
 }
 
 func ReceiveExpectedMessage[ExpectedMessage any](ctx context.Context, conn *websocket.Conn, out *ExpectedMessage) error {
