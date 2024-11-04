@@ -36,13 +36,13 @@ func loadFont(filename string) (*text.GoTextFaceSource, error) {
 
 func NewAssetManager() *AssetManager {
 
-	fontSource, err := loadFont("../assets/MunroFont/munro-narrow.ttf")
+	fontSource, err := loadFont("./assets/MunroFont/munro-narrow.ttf")
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	background := NewSpriteBuilder().
-		FromFile("../assets/SpaceShooterAssetPack/BackGrounds.png").
+		FromFile("./assets/SpaceShooterAssetPack/BackGrounds.png").
 		CreateTiles(CreateTilesInput{X_start: 0, Y_start: 0, Width: 128, Height: 256, X_count: 3, Y_count: 2}).
 		FilterTiles(
 			Tile{X: 128, Y: 0, Width: 128, Height: 256},
@@ -54,7 +54,7 @@ func NewAssetManager() *AssetManager {
 	ships := make([]Sprite, 5)
 	for i := 0; i < 5; i += 1 {
 		ships[i] = NewSpriteBuilder().
-			FromFile("../assets/SpaceShooterAssetPack/Ships.png").
+			FromFile("./assets/SpaceShooterAssetPack/Ships.png").
 			BuildAsSprite(Tile{X: 8, Y: 8 * i, Width: 8, Height: 8})
 
 	}
