@@ -5,7 +5,7 @@
 To run the game natively, invoke the following command:
 
 ```bash
-go run cmd/native/main.go
+python run.py native
 ```
 
 #### On the Web using WASM

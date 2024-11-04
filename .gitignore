@@ -2,3 +2,6 @@
 
 **/space_shooter
 **/space_shooter.exe
+
+server/static/game.wasm
+server/static/wasm_exec.js

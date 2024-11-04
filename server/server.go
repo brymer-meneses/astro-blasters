@@ -43,6 +43,8 @@ func NewServer() *Server {
 	s.players = make(map[messages.PlayerId]*playerConnection)
 	s.serveMux.HandleFunc("/events/ws", s.ws)
 
+	s.serveMux.HandleFunc("/", http.FileServer(http.Dir("server/static/")).ServeHTTP)
+
 	s.ecs = ecs.NewECS(donburi.NewWorld())
 	return s
 }

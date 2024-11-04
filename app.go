@@ -20,21 +20,19 @@ type App struct {
 func NewApp(config *config.AppConfig) *App {
 	assetManager := assets.NewAssetManager()
 	scene := menu.NewMenuScene(config, assetManager)
-	return &App{
-		sceneDispatcher: scenes.NewSceneDispatcher(),
-		config:          config,
-		scene:           scene,
-		assetManager:    assetManager,
+	app := &App{
+		config:       config,
+		scene:        scene,
+		assetManager: assetManager,
 	}
+	app.sceneDispatcher = scenes.NewSceneDispatcher(app)
+	return app
 }
 
 func (self *App) Run() error {
 	ebiten.SetWindowSize(self.config.ScreenWidth, self.config.ScreenHeight)
 	ebiten.SetWindowTitle("Space Shooter")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-
-	// Handle scene dispatch.
-	go self.sceneDispatcher.CheckDispatch(self)
 
 	return ebiten.RunGame(self)
 }

@@ -1,12 +1,21 @@
 <!doctype html>
+<script src="wasm_exec.js"></script>
+<script>
+  // Declare an async function to handle the WebAssembly initialization
+  async function init() {
+    const go = new Go();
 
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Space Shooter</title>
-  </head>
+    // Fetch and instantiate the WASM module
+    const result = await WebAssembly.instantiateStreaming(
+      fetch("game.wasm"),
+      go.importObject,
+    );
 
-  <body>
-    <h1>Hello World!</h1>
-  </body>
-</html>
+    const wasmModule = result.instance;
+    await go.run(wasmModule);
+  }
+
+  window.onload = () => {
+    init();
+  };
+</script>

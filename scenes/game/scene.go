@@ -9,6 +9,7 @@ import (
 	"space-shooter/scenes"
 	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -28,7 +29,8 @@ type GameScene struct {
 }
 
 func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *GameScene {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
 	if err != nil {
 		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
@@ -202,6 +204,7 @@ func (self *GameScene) receiveServerUpdates() {
 
 				self.spawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
 			}
+		default:
 		}
 	}
 
