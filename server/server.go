@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 	"time"
 
@@ -47,7 +48,8 @@ func NewServer() *Server {
 }
 
 func (self *Server) Start(port string) error {
-	log.Printf("Listening at %s", port)
+	fmt.Printf("Server started at %s:%s\n", getLocalIP(), port)
+
 	return http.ListenAndServe(":"+port, &self.serveMux)
 }
 
@@ -224,4 +226,23 @@ func (self *Server) getEnemyData(playerId messages.PlayerId) []messages.EnemyDat
 	}
 
 	return enemyData
+}
+
+// From: https://stackoverflow.com/a/31551220
+func getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	return ""
 }
