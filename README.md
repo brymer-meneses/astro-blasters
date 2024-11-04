@@ -2,15 +2,20 @@
 
 ## Running the Game
 
-To run the game natively, invoke the following command:
+To start the server, run the following command:
 
 ```bash
-python run.py native
+python run.py server
 ```
+This will print the server's address. You can access the game in your browser using the provided link.
 
-#### On the Web using WASM
+#### Runing the Game Natively
 
-The game can be run on the browser via the following command:
+To run the game on your local machine, use the command:
+
 ```bash
-go run cmd/server/main.go
+python run.py native --address <address> --port <port>
 ```
+
+
+
