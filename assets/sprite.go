@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"bytes"
 	"image"
 	"log"
 	"math/rand"
@@ -42,8 +43,8 @@ func (s *Sprite) RenderWithOptions(screen *ebiten.Image, options *ebiten.DrawIma
 	screen.DrawImage(s.Image, options)
 }
 
-func (s *SpriteBuilder) FromFile(file string) *SpriteBuilder {
-	image, _, err := ebitenutil.NewImageFromFile(file)
+func (s *SpriteBuilder) FromBytes(data []byte) *SpriteBuilder {
+	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
 		log.Fatal(err)
 	}
