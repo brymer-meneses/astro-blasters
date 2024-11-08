@@ -2,9 +2,9 @@ package menu
 
 import (
 	"space-shooter/assets"
-	"space-shooter/config"
-	"space-shooter/scenes"
-	"space-shooter/scenes/game"
+	"space-shooter/client/config"
+	"space-shooter/client/scenes"
+	"space-shooter/client/scenes/game"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -12,12 +12,12 @@ import (
 )
 
 type MenuScene struct {
-	config       *config.AppConfig
+	config       *config.ClientConfig
 	assetManager *assets.AssetManager
 	once         sync.Once
 }
 
-func NewMenuScene(config *config.AppConfig, manager *assets.AssetManager) *MenuScene {
+func NewMenuScene(config *config.ClientConfig, manager *assets.AssetManager) *MenuScene {
 	return &MenuScene{config: config, assetManager: manager}
 }
 

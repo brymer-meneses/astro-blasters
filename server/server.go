@@ -10,8 +10,8 @@ import (
 
 	"log"
 	"net/http"
+	"space-shooter/component"
 	"space-shooter/rpc"
-	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"

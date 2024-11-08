@@ -6,8 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
-	app "space-shooter"
-	"space-shooter/config"
+	"space-shooter/client"
+	"space-shooter/client/config"
 	"space-shooter/server"
 
 	"github.com/spf13/cobra"
@@ -68,13 +68,13 @@ func main() {
 				}
 
 				url := fmt.Sprintf("%s://%s:%d/play/ws", protocol, address, port)
-				config := config.AppConfig{
+				config := config.ClientConfig{
 					ScreenWidth:        1080,
 					ScreenHeight:       720,
 					ServerWebsocketURL: url,
 				}
 
-				app := app.NewApp(&config)
+				app := client.NewApp(&config)
 				if err := app.Run(); err != nil {
 					fmt.Println(err)
 					os.Exit(1)

@@ -1,23 +1,23 @@
-package app
+package client
 
 import (
 	"space-shooter/assets"
-	"space-shooter/config"
-	"space-shooter/scenes"
-	"space-shooter/scenes/menu"
+	"space-shooter/client/config"
+	"space-shooter/client/scenes"
+	"space-shooter/client/scenes/menu"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type App struct {
-	config       *config.AppConfig
+	config       *config.ClientConfig
 	assetManager *assets.AssetManager
 
 	sceneDispatcher *scenes.SceneDispatcher
 	scene           scenes.Scene
 }
 
-func NewApp(config *config.AppConfig) *App {
+func NewApp(config *config.ClientConfig) *App {
 	assetManager := assets.NewAssetManager()
 	scene := menu.NewMenuScene(config, assetManager)
 	app := &App{

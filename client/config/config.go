@@ -1,6 +1,6 @@
 package config
 
-type AppConfig struct {
+type ClientConfig struct {
 	ScreenWidth  int
 	ScreenHeight int
 

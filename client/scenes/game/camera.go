@@ -1,17 +1,17 @@
 package game
 
 import (
-	"space-shooter/config"
-	"space-shooter/scenes/game/component"
+	"space-shooter/client/config"
+	"space-shooter/component"
 )
 
 type Camera struct {
 	X      float64
 	Y      float64
-	config *config.AppConfig
+	config *config.ClientConfig
 }
 
-func NewCamera(x, y float64, config *config.AppConfig) *Camera {
+func NewCamera(x, y float64, config *config.ClientConfig) *Camera {
 	return &Camera{
 		X:      x,
 		Y:      y,

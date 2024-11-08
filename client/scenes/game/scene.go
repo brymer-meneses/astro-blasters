@@ -4,10 +4,10 @@ import (
 	"context"
 	"log"
 	"space-shooter/assets"
-	"space-shooter/config"
+	"space-shooter/client/config"
+	"space-shooter/client/scenes"
+	"space-shooter/component"
 	"space-shooter/rpc"
-	"space-shooter/scenes"
-	"space-shooter/scenes/game/component"
 	"space-shooter/server/messages"
 	"time"
 
@@ -28,7 +28,7 @@ type GameScene struct {
 	camera *Camera
 }
 
-func NewGameScene(config *config.AppConfig, assetManager *assets.AssetManager) *GameScene {
+func NewGameScene(config *config.ClientConfig, assetManager *assets.AssetManager) *GameScene {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)

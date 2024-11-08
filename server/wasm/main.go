@@ -5,8 +5,8 @@ package main
 import (
 	"fmt"
 	"log"
-	app "space-shooter"
-	"space-shooter/config"
+	"space-shooter/client"
+	"space-shooter/client/config"
 	"strings"
 	"syscall/js"
 )
@@ -29,13 +29,13 @@ func main() {
 	serverUrl, _ := getServerUrl()
 	serverWebsocketUrl := fmt.Sprintf("ws://%s/events/ws", serverUrl)
 
-	config := config.AppConfig{
+	config := config.ClientConfig{
 		ScreenWidth:        1080,
 		ScreenHeight:       720,
 		ServerWebsocketURL: serverWebsocketUrl,
 	}
 
-	app := app.NewApp(&config)
+	app := client.NewApp(&config)
 	if err := app.Run(); err != nil {
 		log.Fatal(err)
 	}
