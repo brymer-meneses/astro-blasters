@@ -9,6 +9,7 @@ import (
 	"space-shooter/client"
 	"space-shooter/client/config"
 	"space-shooter/server"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -37,8 +38,14 @@ func main() {
 						fmt.Println(err)
 						os.Exit(1)
 					}
-					wasmExecPath := path.Join(string(goroot), "misc", "wasm", "wasm_exec.js")
+
+					wasmExecPath := path.Join(strings.TrimSuffix(string(goroot), "\n"), "misc", "wasm", "wasm_exec.js")
 					os.Link(wasmExecPath, "server/static/wasm_exec.js")
+
+					if err != nil {
+						fmt.Println(err)
+						os.Exit(1)
+					}
 				}
 
 				server := server.NewServer()

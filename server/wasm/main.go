@@ -27,7 +27,7 @@ func getServerUrl() (serverUrl string, isSecure bool) {
 
 func main() {
 	serverUrl, _ := getServerUrl()
-	serverWebsocketUrl := fmt.Sprintf("ws://%s/events/ws", serverUrl)
+	serverWebsocketUrl := fmt.Sprintf("ws://%s/play/ws", serverUrl)
 
 	config := config.ClientConfig{
 		ScreenWidth:        1080,
