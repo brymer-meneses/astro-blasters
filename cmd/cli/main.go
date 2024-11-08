@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -24,22 +25,28 @@ func main() {
 			Use:   "server",
 			Short: "Run the server",
 			Run: func(cmd *cobra.Command, args []string) {
+
+				var stderr bytes.Buffer
+
 				build := exec.Command("go", "build", "-o", "server/static/game.wasm", "server/wasm/main.go")
+				build.Stderr = &stderr
 				build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 
 				if err := build.Run(); err != nil {
-					fmt.Println(err)
+					fmt.Println(stderr.String())
 					os.Exit(1)
 				}
 
 				if _, err := os.Stat("server/static/wasm_exec.js"); errors.Is(err, os.ErrNotExist) {
-					goroot, err := exec.Command("go", "env", "GOROOT").Output()
+					output, err := exec.Command("go", "env", "GOROOT").Output()
 					if err != nil {
 						fmt.Println(err)
 						os.Exit(1)
 					}
 
-					wasmExecPath := path.Join(strings.TrimSuffix(string(goroot), "\n"), "misc", "wasm", "wasm_exec.js")
+					goroot := strings.TrimSuffix(string(output), "\n")
+
+					wasmExecPath := path.Join(goroot, "misc", "wasm", "wasm_exec.js")
 					os.Link(wasmExecPath, "server/static/wasm_exec.js")
 
 					if err != nil {
