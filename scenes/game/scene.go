@@ -100,7 +100,7 @@ func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *compone
 	)
 	component.Sprite.SetValue(
 		player,
-		component.SpriteData{Image: self.assetManager.Ships[playerId].Image},
+		self.assetManager.Ships[playerId],
 	)
 }
 
@@ -190,9 +190,9 @@ func (self *GameScene) receiveServerUpdates() {
 					continue
 				}
 
-				entry := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
-				if entry != nil {
-					component.Position.SetValue(entry, updatePosition.Position)
+				player := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
+				if player != nil {
+					component.Position.SetValue(player, updatePosition.Position)
 				}
 			}
 		case "PlayerConnected":

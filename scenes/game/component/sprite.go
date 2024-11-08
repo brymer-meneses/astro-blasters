@@ -1,12 +1,9 @@
 package component
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
+	"space-shooter/assets"
+
 	"github.com/yohamta/donburi"
 )
 
-type SpriteData struct {
-	Image *ebiten.Image
-}
-
-var Sprite = donburi.NewComponentType[SpriteData]()
+var Sprite = donburi.NewComponentType[assets.Sprite]()

@@ -33,15 +33,10 @@ type playerConnection struct {
 	conn  *websocket.Conn
 }
 
-type Message struct {
-	PlayerId messages.PlayerId
-	Message  rpc.BaseMessage
-}
-
 func NewServer() *Server {
 	s := &Server{}
 	s.players = make(map[messages.PlayerId]*playerConnection)
-	s.serveMux.HandleFunc("/events/ws", s.ws)
+	s.serveMux.HandleFunc("/play/ws", s.ws)
 
 	s.serveMux.HandleFunc("/", http.FileServer(http.Dir("server/static/")).ServeHTTP)
 
@@ -49,10 +44,10 @@ func NewServer() *Server {
 	return s
 }
 
-func (self *Server) Start(port string) error {
-	fmt.Printf("Server started at %s:%s\n", getLocalIP(), port)
+func (self *Server) Start(port int) error {
+	fmt.Printf("Server started at %s:%d\n", getLocalIP(), port)
 
-	return http.ListenAndServe(":"+port, &self.serveMux)
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), &self.serveMux)
 }
 
 func (self *Server) ws(w http.ResponseWriter, r *http.Request) {

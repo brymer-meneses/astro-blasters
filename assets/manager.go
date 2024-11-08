@@ -9,6 +9,15 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
+//go:embed MunroFont/munro-narrow.ttf
+var munroNarrow []byte
+
+//go:embed SpaceShooterAssetPack/BackGrounds.png
+var backgroundsAsset []byte
+
+//go:embed SpaceShooterAssetPack/Ships.png
+var shipsAsset []byte
+
 const (
 	MapWidth  = 4000
 	MapHeight = 4000
@@ -20,15 +29,6 @@ type AssetManager struct {
 
 	Ships []Sprite
 }
-
-//go:embed MunroFont/munro-narrow.ttf
-var munroNarrow []byte
-
-//go:embed SpaceShooterAssetPack/BackGrounds.png
-var backgroundsAsset []byte
-
-//go:embed SpaceShooterAssetPack/Ships.png
-var shipsAsset []byte
 
 func NewAssetManager() *AssetManager {
 	fontSource, err := text.NewGoTextFaceSource(bytes.NewReader(munroNarrow))

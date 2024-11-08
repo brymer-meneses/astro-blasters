@@ -1,14 +1,18 @@
 package component
 
-import "github.com/yohamta/donburi"
+import (
+	"space-shooter/assets"
+
+	"github.com/yohamta/donburi"
+)
 
 type AnimationData struct {
-	sheet []SpriteData
+	sheet []assets.Sprite
 	frame uint16
 }
 
-func (self *AnimationData) Frame() *SpriteData {
-	return &self.sheet[self.frame]
+func (self *AnimationData) Frame() assets.Sprite {
+	return self.sheet[self.frame]
 }
 
 func (self *AnimationData) Update() {
