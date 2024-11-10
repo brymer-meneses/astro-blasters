@@ -14,8 +14,8 @@ var Ships Sprite
 var FontNarrow *text.GoTextFaceSource
 
 func init() {
-	Background = mustLoadImageFromBytes(backgrounds, 128, 256)
-	Ships = mustLoadImageFromBytes(ships, 8, 8)
+	Background = mustLoadSpriteFromBytes(backgrounds, 128, 256)
+	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
 
 	FontNarrow = mustLoadFontFromBytes(munroNarrow)
 }
@@ -29,7 +29,7 @@ var backgrounds []byte
 //go:embed SpaceShooterAssetPack/Ships.png
 var ships []byte
 
-func mustLoadImageFromBytes(data []byte, width, height int) Sprite {
+func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
 		panic(err)
