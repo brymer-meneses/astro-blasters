@@ -1,8 +1,8 @@
-package game
+package arena
 
 import (
 	"space-shooter/client/config"
-	"space-shooter/component"
+	"space-shooter/game/component"
 )
 
 type Camera struct {

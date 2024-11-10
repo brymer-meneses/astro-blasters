@@ -1,7 +1,6 @@
 package client
 
 import (
-	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/menu"
@@ -10,22 +9,19 @@ import (
 )
 
 type App struct {
-	config       *config.ClientConfig
-	assetManager *assets.AssetManager
+	config *config.ClientConfig
 
-	sceneDispatcher *scenes.SceneDispatcher
+	sceneDispatcher *scenes.Dispatcher
 	scene           scenes.Scene
 }
 
 func NewApp(config *config.ClientConfig) *App {
-	assetManager := assets.NewAssetManager()
-	scene := menu.NewMenuScene(config, assetManager)
+	scene := menu.NewMenuScene(config)
 	app := &App{
-		config:       config,
-		scene:        scene,
-		assetManager: assetManager,
+		config: config,
+		scene:  scene,
 	}
-	app.sceneDispatcher = scenes.NewSceneDispatcher(app)
+	app.sceneDispatcher = scenes.NewDispatcher(app)
 	return app
 }
 

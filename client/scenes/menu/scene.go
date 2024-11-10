@@ -4,7 +4,8 @@ import (
 	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
-	"space-shooter/client/scenes/game"
+	"space-shooter/client/scenes/arena"
+	"space-shooter/client/scenes/common"
 	"sync"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -12,27 +13,23 @@ import (
 )
 
 type MenuScene struct {
-	config       *config.ClientConfig
-	assetManager *assets.AssetManager
-	once         sync.Once
+	config     *config.ClientConfig
+	background *common.Background
+	once       sync.Once
 }
 
-func NewMenuScene(config *config.ClientConfig, manager *assets.AssetManager) *MenuScene {
-	return &MenuScene{config: config, assetManager: manager}
-}
-
-type FontFace struct {
-	text.GoTextFace
+func NewMenuScene(config *config.ClientConfig) *MenuScene {
+	return &MenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight)}
 }
 
 func (self *MenuScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-	self.assetManager.Background.Render(screen)
+	screen.DrawImage(self.background.Image, nil)
 
 	msg := "Space Shooter"
 
 	fontface := text.GoTextFace{
-		Source: self.assetManager.FontSource,
+		Source: assets.FontNarrow,
 		Size:   100,
 	}
 
@@ -49,11 +46,11 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 	text.Draw(screen, msg, &fontface, ops)
 }
 
-func (self *MenuScene) Update(dispatcher *scenes.SceneDispatcher) {
+func (self *MenuScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
 		self.once.Do(
 			func() {
-				dispatcher.DispatchScene(game.NewGameScene(self.config, self.assetManager))
+				dispatcher.Dispatch(arena.NewArenaScene(self.config))
 			})
 	}
 }

@@ -6,21 +6,21 @@ import (
 
 type Scene interface {
 	Draw(screen *ebiten.Image)
-	Update(dispatcher *SceneDispatcher)
+	Update(dispatcher *Dispatcher)
 }
 
 type app interface {
 	ChangeScene(scenes Scene)
 }
 
-type SceneDispatcher struct {
+type Dispatcher struct {
 	app app
 }
 
-func NewSceneDispatcher(app app) *SceneDispatcher {
-	return &SceneDispatcher{app}
+func NewDispatcher(app app) *Dispatcher {
+	return &Dispatcher{app}
 }
 
-func (self *SceneDispatcher) DispatchScene(scene Scene) {
+func (self *Dispatcher) Dispatch(scene Scene) {
 	self.app.ChangeScene(scene)
 }

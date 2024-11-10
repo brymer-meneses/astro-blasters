@@ -10,22 +10,23 @@ import (
 
 	"log"
 	"net/http"
-	"space-shooter/component"
+	"space-shooter/game"
+	"space-shooter/game/component"
+	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
 )
 
 type Server struct {
-	serveMux http.ServeMux
+	serveMux   http.ServeMux
+	simulation *game.GameSimulation
 
-	ecs     *ecs.ECS
-	players map[messages.PlayerId]*playerConnection
+	players map[types.PlayerId]*playerConnection
 }
 
 type playerConnection struct {
@@ -35,12 +36,12 @@ type playerConnection struct {
 
 func NewServer() *Server {
 	s := &Server{}
-	s.players = make(map[messages.PlayerId]*playerConnection)
-	s.serveMux.HandleFunc("/play/ws", s.ws)
+	s.players = make(map[types.PlayerId]*playerConnection)
 
+	s.serveMux.HandleFunc("/play/ws", s.ws)
 	s.serveMux.HandleFunc("/", http.FileServer(http.Dir("server/static/")).ServeHTTP)
 
-	s.ecs = ecs.NewECS(donburi.NewWorld())
+	s.simulation = game.NewGameSimulation()
 	return s
 }
 
@@ -98,8 +99,8 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 	return nil
 }
 
-func (self *Server) broadcastMessage(from messages.PlayerId, message rpc.BaseMessage) {
-	sendMessage := func(playerId messages.PlayerId, playerConn *playerConnection) {
+func (self *Server) broadcastMessage(from types.PlayerId, message rpc.BaseMessage) {
+	sendMessage := func(playerId types.PlayerId, playerConn *playerConnection) {
 		// Lock the mutex to ensure only one goroutine writes at a time
 		playerConn.mutex.Lock()
 		defer playerConn.mutex.Unlock()
@@ -123,16 +124,16 @@ func (self *Server) broadcastMessage(from messages.PlayerId, message rpc.BaseMes
 	}
 }
 
-func (self *Server) getAvailablePlayerId() (messages.PlayerId, error) {
+func (self *Server) getAvailablePlayerId() (types.PlayerId, error) {
 	connectedPlayers := len(self.players)
 	if connectedPlayers == 5 {
 		return 0, errors.New("Cannot have more than 5 players")
 	}
-	return messages.PlayerId(connectedPlayers), nil
+	return types.PlayerId(connectedPlayers), nil
 }
 
 func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition) {
-	player := self.findCorrespondingPlayer(updatePosition.PlayerId)
+	player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId)
 	if player == nil {
 		log.Printf("Cannot find player %d", updatePosition.PlayerId)
 		return
@@ -140,43 +141,28 @@ func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition
 	donburi.SetValue(player, component.Position, updatePosition.Position)
 }
 
-func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (messages.PlayerId, error) {
+func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (types.PlayerId, error) {
 	playerId, err := self.getAvailablePlayerId()
 	if err != nil {
-		return -1, rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.EstablishConnection{IsRoomFull: true}))
+		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.EstablishConnection{IsRoomFull: true}))
+	}
+
+	position := component.PositionData{
+		X:     0,
+		Y:     0,
+		Angle: 0,
 	}
 
 	self.players[playerId] = &playerConnection{conn: connection}
+	self.simulation.SpawnPlayer(playerId, &position)
 
-	// Set the position of the current connection
-	world := self.ecs.World
-	entity := world.Create(component.Player, component.Position)
-	player := world.Entry(entity)
-
-	component.Player.SetValue(
-		player,
-		component.PlayerData{
-			Name: "Player One",
-			Id:   int(playerId),
-		},
-	)
-	component.Position.SetValue(
-		player,
-		component.PositionData{
-			X:     0,
-			Y:     0,
-			Angle: 0,
-		},
-	)
-
-	position := component.Position.Get(player)
 	enemyData := self.getEnemyData(playerId)
 	err = rpc.WriteMessage(
 		ctx,
 		connection,
 		rpc.NewBaseMessage(messages.EstablishConnection{
-			PlayerId:   messages.PlayerId(playerId),
-			Position:   *position,
+			PlayerId:   playerId,
+			Position:   position,
 			EnemyData:  enemyData,
 			IsRoomFull: false,
 		}),
@@ -188,35 +174,25 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 
 	self.broadcastMessage(playerId, rpc.NewBaseMessage(messages.PlayerConnected{
 		PlayerId: playerId,
-		Position: *position,
+		Position: position,
 	}))
 
 	return playerId, nil
 }
 
-func (self *Server) findCorrespondingPlayer(playerId messages.PlayerId) *donburi.Entry {
-	query := donburi.NewQuery(filter.Contains(component.Player))
-	for player := range query.Iter(self.ecs.World) {
-		if int(playerId) == component.Player.GetValue(player).Id {
-			return player
-		}
-	}
-	return nil
-}
-
-func (self *Server) getEnemyData(playerId messages.PlayerId) []messages.EnemyData {
+func (self *Server) getEnemyData(playerId types.PlayerId) []messages.EnemyData {
 	// Get the position data of each player
 	enemyData := make([]messages.EnemyData, len(self.players)-1)
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position))
 	i := 0
 
-	for player := range query.Iter(self.ecs.World) {
-		if playerId == messages.PlayerId(component.Player.Get(player).Id) {
+	for player := range query.Iter(self.simulation.ECS.World) {
+		if playerId == component.Player.Get(player).Id {
 			continue
 		}
 
 		enemyData[i] = messages.EnemyData{
-			PlayerId: messages.PlayerId(component.Player.Get(player).Id),
+			PlayerId: component.Player.Get(player).Id,
 			Position: *component.Position.Get(player),
 		}
 		i++

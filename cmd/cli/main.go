@@ -97,10 +97,8 @@ func main() {
 		}
 
 		clientCmd.Flags().IntVarP(&port, "port", "p", 8080, "Port of the server")
-		clientCmd.Flags().StringVarP(&address, "address", "a", "", "Address of the server")
+		clientCmd.Flags().StringVarP(&address, "address", "a", "localhost", "Address of the server")
 		clientCmd.Flags().BoolVarP(&secure, "secure", "s", false, "Whether to use WSS")
-		clientCmd.MarkFlagRequired("port")
-		clientCmd.MarkFlagRequired("address")
 
 		rootCmd.AddCommand(clientCmd)
 	}

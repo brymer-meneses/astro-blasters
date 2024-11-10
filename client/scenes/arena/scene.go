@@ -1,12 +1,14 @@
-package game
+package arena
 
 import (
 	"context"
 	"log"
-	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
-	"space-shooter/component"
+	"space-shooter/client/scenes/common"
+	"space-shooter/game"
+	"space-shooter/game/component"
+	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
 	"time"
@@ -15,20 +17,23 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/ecs"
 	"github.com/yohamta/donburi/filter"
 )
 
-type GameScene struct {
-	assetManager *assets.AssetManager
-	ecs          *ecs.ECS
-	connection   *websocket.Conn
-	playerId     messages.PlayerId
+const (
+	MapWidth  = 4000
+	MapHeight = 4000
+)
 
-	camera *Camera
+type ArenaScene struct {
+	connection *websocket.Conn
+	simulation *game.GameSimulation
+	background *common.Background
+	playerId   types.PlayerId
+	camera     *Camera
 }
 
-func NewGameScene(config *config.ClientConfig, assetManager *assets.AssetManager) *GameScene {
+func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
@@ -45,83 +50,43 @@ func NewGameScene(config *config.ClientConfig, assetManager *assets.AssetManager
 		log.Fatal("Room is full")
 	}
 
-	scene := &GameScene{
-		assetManager: assetManager,
-		playerId:     message.PlayerId,
-		connection:   connection,
-		camera:       NewCamera(0, 0, config),
+	scene := &ArenaScene{
+		background: common.NewBackground(MapWidth, MapHeight),
+		playerId:   message.PlayerId,
+		simulation: game.NewGameSimulation(),
+		connection: connection,
+		camera:     NewCamera(0, 0, config),
 	}
 
-	scene.ecs =
-		ecs.NewECS(donburi.NewWorld()).
-			AddRenderer(ecs.LayerDefault, scene.drawEnvironment).
-			AddSystem(scene.movePlayer)
+	scene.simulation.SpawnPlayer(message.PlayerId, &message.Position)
+	for _, enemy := range message.EnemyData {
+		scene.simulation.SpawnPlayer(enemy.PlayerId, &enemy.Position)
+	}
 
-	scene.spawnPlayer(message.PlayerId, &message.Position)
-
-	// Follow the player.
+	// Focus the camera on the player.
 	scene.camera.FocusTarget(message.Position)
-
-	for _, enemyData := range message.EnemyData {
-		scene.spawnPlayer(messages.PlayerId(enemyData.PlayerId), &enemyData.Position)
-	}
 
 	go scene.receiveServerUpdates()
 	return scene
 }
 
-func (self *GameScene) Draw(screen *ebiten.Image) {
+func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-
-	self.ecs.DrawLayer(ecs.LayerDefault, screen)
-	self.ecs.Draw(screen)
-}
-
-func (self *GameScene) Update(dispatcher *scenes.SceneDispatcher) {
-	self.ecs.Update()
-}
-
-// Spawns the player in the game.
-func (self *GameScene) spawnPlayer(playerId messages.PlayerId, position *component.PositionData) {
-	world := self.ecs.World
-	entity := world.Create(component.Player, component.Position, component.Sprite)
-	player := world.Entry(entity)
-
-	component.Player.SetValue(
-		player,
-		component.PlayerData{
-			Name: "Player One",
-			Id:   int(playerId),
-		},
-	)
-	component.Position.SetValue(
-		player,
-		*position,
-	)
-	component.Sprite.SetValue(
-		player,
-		self.assetManager.Ships[playerId],
-	)
-}
-
-// Draws the game environment.
-func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
-
 	// Draw the background.
 	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(-assets.MapWidth/2, -assets.MapHeight/2)
+	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
-	self.assetManager.Background.RenderWithOptions(screen, opts)
+	screen.DrawImage(self.background.Image, opts)
 
 	// Loop through each player and draw each of them.
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-	for player := range query.Iter(self.ecs.World) {
-		sprite := component.Sprite.Get(player)
+	for player := range query.Iter(self.simulation.ECS.World) {
+		sprite := component.Sprite.GetValue(player)
 		position := component.Position.Get(player)
 
 		// Center the texture
-		x_0 := float64(sprite.Image.Bounds().Dx()) / 2
-		y_0 := float64(sprite.Image.Bounds().Dy()) / 2
+		x_0 := float64(sprite.Bounds().Dx()) / 2
+		y_0 := float64(sprite.Bounds().Dy()) / 2
 
 		opts := &ebiten.DrawImageOptions{}
 		opts.GeoM.Translate(-x_0, -y_0)
@@ -132,13 +97,11 @@ func (self *GameScene) drawEnvironment(ecs *ecs.ECS, screen *ebiten.Image) {
 		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
 
 		// Render at this position
-		screen.DrawImage(sprite.Image, opts)
+		screen.DrawImage(sprite, opts)
 	}
 }
 
-// Handles the movement of the player and sends it to the server.
-func (self *GameScene) movePlayer(ecs *ecs.ECS) {
-
+func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	updatePosition := func(positionData *component.PositionData) {
 		message := rpc.NewBaseMessage(
 			messages.UpdatePosition{
@@ -152,8 +115,8 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
 
-	for player := range query.Iter(ecs.World) {
-		if int(self.playerId) != component.Player.GetValue(player).Id {
+	for player := range query.Iter(self.simulation.ECS.World) {
+		if self.playerId != component.Player.GetValue(player).Id {
 			continue
 		}
 
@@ -175,7 +138,7 @@ func (self *GameScene) movePlayer(ecs *ecs.ECS) {
 }
 
 // Receives information from the server and updates the game state accordingly.
-func (self *GameScene) receiveServerUpdates() {
+func (self *ArenaScene) receiveServerUpdates() {
 	for {
 		var message rpc.BaseMessage
 		if err := rpc.ReceiveMessage(context.Background(), self.connection, &message); err != nil {
@@ -190,7 +153,7 @@ func (self *GameScene) receiveServerUpdates() {
 					continue
 				}
 
-				player := findCorrespondingPlayer(self.ecs, updatePosition.PlayerId)
+				player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId)
 				if player != nil {
 					component.Position.SetValue(player, updatePosition.Position)
 				}
@@ -202,21 +165,10 @@ func (self *GameScene) receiveServerUpdates() {
 					continue
 				}
 
-				self.spawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
+				self.simulation.SpawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
 			}
 		default:
 		}
 	}
 
-}
-
-// Returns the ecs entry given the playerId.
-func findCorrespondingPlayer(ecs *ecs.ECS, playerId messages.PlayerId) *donburi.Entry {
-	query := donburi.NewQuery(filter.Contains(component.Player))
-	for player := range query.Iter(ecs.World) {
-		if int(playerId) == component.Player.GetValue(player).Id {
-			return player
-		}
-	}
-	return nil
 }
