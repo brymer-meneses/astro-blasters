@@ -28,7 +28,7 @@ func main() {
 
 				var stderr bytes.Buffer
 
-				build := exec.Command("go", "build", "-o", "server/static/game.wasm", "server/wasm/main.go")
+				build := exec.Command("go", "build", "-o", "server/static/game.wasm", "client/wasm/main.go")
 				build.Stderr = &stderr
 				build.Env = append(os.Environ(), "GOOS=js", "GOARCH=wasm")
 
