@@ -2,6 +2,12 @@ package arena
 
 import (
 	"context"
+	"github.com/coder/websocket"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/vmihailenco/msgpack/v5"
+	"github.com/yohamta/donburi"
+	"github.com/yohamta/donburi/filter"
+	"image/color"
 	"log"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
@@ -12,17 +18,11 @@ import (
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
 	"time"
-	"image/color"
-	"github.com/coder/websocket"
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/vmihailenco/msgpack/v5"
-	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/filter"
 )
 
 const (
-	MapWidth  = 4000
-	MapHeight = 4000
+	MapWidth      = 4000
+	MapHeight     = 4000
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
@@ -101,6 +101,7 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 		// Render at this position
 		screen.DrawImage(sprite, opts)
 	}
+
 	self.drawMinimap(screen)
 }
 
@@ -177,81 +178,78 @@ func (self *ArenaScene) receiveServerUpdates() {
 }
 
 func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
-    // Create the minimap image
-    minimap := ebiten.NewImage(MinimapWidth, MinimapHeight)
-    minimap.Fill(color.Black)
+	// Create the minimap image
+	minimap := ebiten.NewImage(MinimapWidth, MinimapHeight)
+	minimap.Fill(color.Black)
 
-    // Scale factor to map world coordinates to minimap coordinates
-    scaleX := float64(MinimapWidth) / float64(MapWidth)
-    scaleY := float64(MinimapHeight) / float64(MapHeight)
+	// Scale factor to map world coordinates to minimap coordinates
+	scaleX := float64(MinimapWidth) / float64(MapWidth)
+	scaleY := float64(MinimapHeight) / float64(MapHeight)
 
-    // Draw the scaled-down game background on the minimap
-    bgOpts := &ebiten.DrawImageOptions{}
-    bgOpts.GeoM.Scale(scaleX, scaleY)
-    minimap.DrawImage(self.background.Image, bgOpts)
+	// Get the player's position to center the minimap around it
+	playerPos := component.Position.Get(self.simulation.FindCorrespondingPlayer(self.playerId))
 
-    // Get the player's position to center the minimap around it
-    playerPos := component.Position.Get(self.simulation.FindCorrespondingPlayer(self.playerId))
+	// Calculate offsets to center the player in the minimap
+	offsetX := playerPos.X*scaleX - float64(MinimapWidth)/2
+	offsetY := playerPos.Y*scaleY - float64(MinimapHeight)/2
 
-    // Calculate offsets to center the player in the minimap
-    offsetX := playerPos.X*scaleX - float64(MinimapWidth)/2
-    offsetY := playerPos.Y*scaleY - float64(MinimapHeight)/2
+	spriteScale := 1.0
 
-    // Draw all players on the minimap, with the main player centered
-    query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-    for player := range query.Iter(self.simulation.ECS.World) {
-        position := component.Position.Get(player)
+	// Draw all players on the minimap, with the main player centered
+	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
+	for player := range query.Iter(self.simulation.ECS.World) {
+		position := component.Position.Get(player)
+		sprite := component.Sprite.GetValue(player)
 
-        // Calculate the position of each player relative to the centered player
-        minimapX := (position.X * scaleX) - offsetX
-        minimapY := (position.Y * scaleY) - offsetY
+		// Calculate the position of each player relative to the centered player
+		minimapX := (position.X * scaleX) - offsetX
+		minimapY := (position.Y * scaleY) - offsetY
 
-        // Check if the ship sprite is available
-        playerSpritePtr := component.Sprite.Get(player)
-        if playerSpritePtr != nil {
-            playerSprite := *playerSpritePtr // Dereference to get *ebiten.Image
+		// Check if the ship sprite is available
+		x_0 := (float64(sprite.Bounds().Dx()) / 2)
+		y_0 := (float64(sprite.Bounds().Dy()) / 2)
 
-            // Scale down the ship for the minimap
-            spriteScale := 0.5 // Adjust this scale factor to change ship size
+		// Scale down the ship for the minimap
 
-            opts := &ebiten.DrawImageOptions{}
-            opts.GeoM.Scale(spriteScale, spriteScale)
-            opts.GeoM.Translate(minimapX, minimapY)
-            minimap.DrawImage(playerSprite, opts)
-        }
-    }
+		opts := &ebiten.DrawImageOptions{}
+		opts.GeoM.Translate(-x_0, -y_0)
+		opts.GeoM.Rotate(position.Angle)
 
-    // Draw the minimap onto the main screen in the upper-left corner
-    minimapScreenOpts := &ebiten.DrawImageOptions{}
-    minimapScreenOpts.GeoM.Translate(10, 10) // Minimap position on the screen
-    screen.DrawImage(minimap, minimapScreenOpts)
+		opts.GeoM.Scale(spriteScale, spriteScale)
+		opts.GeoM.Translate(minimapX, minimapY)
+		minimap.DrawImage(sprite, opts)
+	}
 
-    // Draw a white border around the minimap
-    borderColor := color.RGBA{255, 255, 255, 255} // White color for the border
-    borderSize := 2
+	// Draw the minimap onto the main screen in the upper-left corner
+	minimapScreenOpts := &ebiten.DrawImageOptions{}
+	minimapScreenOpts.GeoM.Translate(10, 10) // Minimap position on the screen
+	screen.DrawImage(minimap, minimapScreenOpts)
 
-    // Top border
-    topBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-    topBorder.Fill(borderColor)
-    screen.DrawImage(topBorder, minimapScreenOpts)
+	// Draw a white border around the minimap
+	borderColor := color.RGBA{255, 255, 255, 255} // White color for the border
+	borderSize := 2
 
-    // Bottom border
-    bottomBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-    bottomBorder.Fill(borderColor)
-    bottomBorderOpts := *minimapScreenOpts
-    bottomBorderOpts.GeoM.Translate(0, float64(MinimapHeight+borderSize))
-    screen.DrawImage(bottomBorder, &bottomBorderOpts)
+	// Top border
+	topBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
+	topBorder.Fill(borderColor)
+	screen.DrawImage(topBorder, minimapScreenOpts)
 
-    // Left border
-    leftBorder := ebiten.NewImage(borderSize, MinimapHeight)
-    leftBorder.Fill(borderColor)
-    screen.DrawImage(leftBorder, minimapScreenOpts)
+	// Bottom border
+	bottomBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
+	bottomBorder.Fill(borderColor)
+	bottomBorderOpts := *minimapScreenOpts
+	bottomBorderOpts.GeoM.Translate(0, float64(MinimapHeight+borderSize))
+	screen.DrawImage(bottomBorder, &bottomBorderOpts)
 
-    // Right border
-    rightBorder := ebiten.NewImage(borderSize, MinimapHeight)
-    rightBorder.Fill(borderColor)
-    rightBorderOpts := *minimapScreenOpts
-    rightBorderOpts.GeoM.Translate(float64(MinimapWidth+borderSize), 0)
-    screen.DrawImage(rightBorder, &rightBorderOpts)
+	// Left border
+	leftBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
+	leftBorder.Fill(borderColor)
+	screen.DrawImage(leftBorder, minimapScreenOpts)
+
+	// Right border
+	rightBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
+	rightBorder.Fill(borderColor)
+	rightBorderOpts := *minimapScreenOpts
+	rightBorderOpts.GeoM.Translate(float64(MinimapWidth+borderSize), 0)
+	screen.DrawImage(rightBorder, &rightBorderOpts)
 }
-
