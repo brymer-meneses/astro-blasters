@@ -39,22 +39,20 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
 	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position)
 	bullet := self.ECS.World.Entry(entity)
 
-	component.Bullet.Set(
+	component.Bullet.SetValue(
 		bullet,
-		&component.BulletData{
+		component.BulletData{
 			FiredBy:  playerId,
 			ShotWhen: time.Now(),
 		},
 	)
-	component.Position.Set(
+	component.Position.SetValue(
 		bullet,
-		&position,
+		position,
 	)
-
-	animation := component.NewAnimationData(assets.OrangeBulletAnimation[0], 5)
-	component.Animation.Set(
+	component.Animation.SetValue(
 		bullet,
-		&animation,
+		component.NewAnimationData(assets.OrangeBulletAnimation[0], 5),
 	)
 }
 
