@@ -2,11 +2,6 @@ package arena
 
 import (
 	"context"
-	"github.com/coder/websocket"
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/vmihailenco/msgpack/v5"
-	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/filter"
 	"image/color"
 	"log"
 	"space-shooter/client/config"
@@ -18,6 +13,12 @@ import (
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
 	"time"
+
+	"github.com/coder/websocket"
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/vmihailenco/msgpack/v5"
+	"github.com/yohamta/donburi"
+	"github.com/yohamta/donburi/filter"
 )
 
 const (
@@ -31,6 +32,7 @@ type ArenaScene struct {
 	connection *websocket.Conn
 	simulation *game.GameSimulation
 	background *common.Background
+	player     *donburi.Entry
 	playerId   types.PlayerId
 	camera     *Camera
 }
@@ -52,21 +54,29 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
+	camera := NewCamera(0, 0, config)
+	simulation := game.NewGameSimulation()
+	var mainPlayer *donburi.Entry
+
+	for _, player := range message.PlayerData {
+		if player.PlayerId == message.PlayerId {
+			// Focus the camera on the player.
+			mainPlayer = simulation.SpawnPlayer(player.PlayerId, &player.Position)
+			camera.FocusTarget(player.Position)
+			continue
+		}
+
+		simulation.SpawnPlayer(player.PlayerId, &player.Position)
+	}
+
 	scene := &ArenaScene{
 		background: common.NewBackground(MapWidth, MapHeight),
 		playerId:   message.PlayerId,
-		simulation: game.NewGameSimulation(),
+		player:     mainPlayer,
+		simulation: simulation,
 		connection: connection,
-		camera:     NewCamera(0, 0, config),
+		camera:     camera,
 	}
-
-	scene.simulation.SpawnPlayer(message.PlayerId, &message.Position)
-	for _, enemy := range message.EnemyData {
-		scene.simulation.SpawnPlayer(enemy.PlayerId, &enemy.Position)
-	}
-
-	// Focus the camera on the player.
-	scene.camera.FocusTarget(message.Position)
 
 	go scene.receiveServerUpdates()
 	return scene
@@ -74,34 +84,9 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 
 func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-	// Draw the background.
-	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
-	opts.GeoM.Translate(self.camera.X, self.camera.Y)
-	screen.DrawImage(self.background.Image, opts)
 
-	// Loop through each player and draw each of them.
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-	for player := range query.Iter(self.simulation.ECS.World) {
-		sprite := component.Sprite.GetValue(player)
-		position := component.Position.Get(player)
-
-		// Center the texture
-		x_0 := float64(sprite.Bounds().Dx()) / 2
-		y_0 := float64(sprite.Bounds().Dy()) / 2
-
-		opts := &ebiten.DrawImageOptions{}
-		opts.GeoM.Translate(-x_0, -y_0)
-
-		opts.GeoM.Rotate(position.Angle)
-		opts.GeoM.Scale(4, 4)
-		opts.GeoM.Translate(position.X, position.Y)
-		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
-
-		// Render at this position
-		screen.DrawImage(sprite, opts)
-	}
-
+	self.drawBackground(screen)
+	self.drawEntities(screen)
 	self.drawMinimap(screen)
 }
 
@@ -112,33 +97,29 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 				PlayerId: self.playerId,
 				Position: *positionData,
 			})
-
 		rpc.WriteMessage(context.Background(), self.connection, message)
 		self.camera.FocusTarget(*positionData)
 	}
 
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-
-	for player := range query.Iter(self.simulation.ECS.World) {
-		if self.playerId != component.Player.GetValue(player).Id {
-			continue
-		}
-
-		positionData := component.Position.Get(player)
-		if ebiten.IsKeyPressed(ebiten.KeyW) {
-			positionData.Forward()
-			updatePosition(positionData)
-		}
-		if ebiten.IsKeyPressed(ebiten.KeyA) {
-			positionData.RotateClockwise()
-			updatePosition(positionData)
-		}
-		if ebiten.IsKeyPressed(ebiten.KeyD) {
-			positionData.RotateCounterClockwise()
-			updatePosition(positionData)
-		}
-
+	positionData := component.Position.Get(self.player)
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
+		positionData.Forward(5)
+		updatePosition(positionData)
 	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		positionData.RotateClockwise(5)
+		updatePosition(positionData)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
+		positionData.RotateCounterClockwise(5)
+		updatePosition(positionData)
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		self.simulation.FireBullet(self.playerId)
+	}
+
+	self.simulation.Update()
 }
 
 // Receives information from the server and updates the game state accordingly.
@@ -175,6 +156,62 @@ func (self *ArenaScene) receiveServerUpdates() {
 		}
 	}
 
+}
+
+func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
+	// Draw the background.
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
+	opts.GeoM.Translate(self.camera.X, self.camera.Y)
+	screen.DrawImage(self.background.Image, opts)
+
+}
+
+func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
+	// Loop through each player and draw each of them.
+	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
+	for player := range query.Iter(self.simulation.ECS.World) {
+		sprite := component.Sprite.GetValue(player)
+		position := component.Position.Get(player)
+
+		// Center the texture
+		x_0 := float64(sprite.Bounds().Dx()) / 2
+		y_0 := float64(sprite.Bounds().Dy()) / 2
+
+		opts := &ebiten.DrawImageOptions{}
+		opts.GeoM.Translate(-x_0, -y_0)
+
+		opts.GeoM.Rotate(position.Angle)
+		opts.GeoM.Scale(4, 4)
+		opts.GeoM.Translate(position.X, position.Y)
+		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
+
+		// Render at this position
+		screen.DrawImage(sprite, opts)
+	}
+
+	query = donburi.NewQuery(filter.Contains(component.Bullet, component.Position, component.Animation))
+	for bullet := range query.Iter(self.simulation.ECS.World) {
+		animation := component.Animation.Get(bullet)
+		position := component.Position.Get(bullet)
+
+		sprite := animation.Frame()
+
+		// Center the texture
+		x_0 := float64(sprite.Bounds().Dx()) / 2
+		y_0 := float64(sprite.Bounds().Dy()) / 2
+
+		opts := &ebiten.DrawImageOptions{}
+		opts.GeoM.Translate(-x_0, -y_0)
+
+		opts.GeoM.Rotate(position.Angle)
+		opts.GeoM.Scale(4, 4)
+		opts.GeoM.Translate(position.X, position.Y)
+		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
+
+		// Render at this position
+		screen.DrawImage(sprite, opts)
+	}
 }
 
 func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {

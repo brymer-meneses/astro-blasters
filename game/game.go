@@ -1,9 +1,11 @@
 package game
 
 import (
+	"math"
 	"space-shooter/assets"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
@@ -21,9 +23,42 @@ func NewGameSimulation() *GameSimulation {
 	}
 }
 
-func (self *GameSimulation) Update() {}
+func (self *GameSimulation) Update() {
+	component.Bullet.Each(self.ECS.World, func(bullet *donburi.Entry) {
+		position := component.Position.Get(bullet)
+		position.Forward(-10)
+	})
+}
 
-func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData) {
+func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
+	player := self.FindCorrespondingPlayer(playerId)
+	position := component.Position.GetValue(player)
+	position.Angle += math.Pi
+	position.Forward(-40)
+
+	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position)
+	bullet := self.ECS.World.Entry(entity)
+
+	component.Bullet.Set(
+		bullet,
+		&component.BulletData{
+			FiredBy:  playerId,
+			ShotWhen: time.Now(),
+		},
+	)
+	component.Position.Set(
+		bullet,
+		&position,
+	)
+
+	animation := component.NewAnimationData(assets.OrangeBulletAnimation[0], 5)
+	component.Animation.Set(
+		bullet,
+		&animation,
+	)
+}
+
+func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData) *donburi.Entry {
 	world := self.ECS.World
 	entity := world.Create(component.Player, component.Position, component.Sprite)
 	player := world.Entry(entity)
@@ -43,6 +78,8 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 		player,
 		getShipSprite(playerId),
 	)
+
+	return player
 }
 
 // Returns the ecs entry given the playerId.
@@ -58,5 +95,5 @@ func (self *GameSimulation) FindCorrespondingPlayer(playerId types.PlayerId) *do
 
 func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
-	return assets.Ships.GetTile(assets.SpriteTile{X0: 1, Y0: i, X1: 2, Y1: i + 1})
+	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
 }

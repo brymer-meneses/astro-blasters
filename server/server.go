@@ -156,14 +156,13 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	self.players[playerId] = &playerConnection{conn: connection}
 	self.simulation.SpawnPlayer(playerId, &position)
 
-	enemyData := self.getEnemyData(playerId)
+	playerData := self.getPlayerData()
 	err = rpc.WriteMessage(
 		ctx,
 		connection,
 		rpc.NewBaseMessage(messages.EstablishConnection{
 			PlayerId:   playerId,
-			Position:   position,
-			EnemyData:  enemyData,
+			PlayerData: playerData,
 			IsRoomFull: false,
 		}),
 	)
@@ -180,24 +179,19 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	return playerId, nil
 }
 
-func (self *Server) getEnemyData(playerId types.PlayerId) []messages.EnemyData {
+func (self *Server) getPlayerData() []messages.PlayerData {
 	// Get the position data of each player
-	enemyData := make([]messages.EnemyData, len(self.players)-1)
+	enemyData := make([]messages.PlayerData, len(self.players))
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position))
 	i := 0
 
 	for player := range query.Iter(self.simulation.ECS.World) {
-		if playerId == component.Player.Get(player).Id {
-			continue
-		}
-
-		enemyData[i] = messages.EnemyData{
+		enemyData[i] = messages.PlayerData{
 			PlayerId: component.Player.Get(player).Id,
 			Position: *component.Position.Get(player),
 		}
 		i++
 	}
-
 	return enemyData
 }
 

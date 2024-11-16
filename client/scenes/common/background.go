@@ -16,10 +16,10 @@ func NewBackground(width int, height int) *Background {
 	tileWidth := 128
 	tileHeight := 256
 
-	rects := []assets.SpriteTile{
-		{X0: 0, Y0: 0, X1: 1, Y1: 1},
-		{X0: 1, Y0: 1, X1: 2, Y1: 2},
-		{X0: 2, Y0: 1, X1: 3, Y1: 3},
+	rects := []assets.TileIndex{
+		{X: 0, Y: 0},
+		{X: 1, Y: 1},
+		{X: 2, Y: 1},
 	}
 
 	for x := 0; x < width; x += tileWidth {
