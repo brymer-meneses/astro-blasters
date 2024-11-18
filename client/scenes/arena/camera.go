@@ -9,6 +9,9 @@ type Camera struct {
 	X      float64
 	Y      float64
 	config *config.ClientConfig
+
+	shakeDuration  int
+	shakeIntensity float64
 }
 
 func NewCamera(x, y float64, config *config.ClientConfig) *Camera {

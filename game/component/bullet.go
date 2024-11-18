@@ -8,8 +8,8 @@ import (
 )
 
 type BulletData struct {
-	FiredBy  types.PlayerId
-	ShotWhen time.Time
+	FiredBy     types.PlayerId
+	ExpiresWhen time.Time
 }
 
 var Bullet = donburi.NewComponentType[BulletData]()

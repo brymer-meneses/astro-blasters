@@ -4,6 +4,7 @@ import (
 	"context"
 	"image/color"
 	"log"
+	"math/rand/v2"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
@@ -35,6 +36,10 @@ type ArenaScene struct {
 	player     *donburi.Entry
 	playerId   types.PlayerId
 	camera     *Camera
+
+	isShaking      bool
+	shakeDuration  int
+	shakeIntensity float64
 }
 
 func NewArenaScene(config *config.ClientConfig) *ArenaScene {
@@ -76,6 +81,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		simulation: simulation,
 		connection: connection,
 		camera:     camera,
+		isShaking:  false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -84,8 +90,17 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 
 func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
+<<<<<<< HEAD
+=======
+
+	if self.shakeDuration > 0 {
+		self.camera.X += (rand.Float64()*2 - 1) * self.shakeIntensity
+		self.camera.Y += (rand.Float64()*2 - 1) * self.shakeIntensity
+		self.shakeDuration -= 1
+	}
+
+>>>>>>> f88265aeaa1bdc5efb22a4dfe6f5a2d26d0dd2b1
 	self.drawBackground(screen)
-	self.drawStillBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
 }
@@ -98,27 +113,27 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 				Position: *positionData,
 			})
 		rpc.WriteMessage(context.Background(), self.connection, message)
-		self.camera.FocusTarget(*positionData)
 	}
 
-	positionData := component.Position.Get(self.player)
+	playerPosition := component.Position.Get(self.player)
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		positionData.Forward(5)
-		updatePosition(positionData)
+		playerPosition.Forward(5)
+		updatePosition(playerPosition)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		positionData.RotateClockwise(5)
-		updatePosition(positionData)
+		playerPosition.RotateClockwise(5)
+		updatePosition(playerPosition)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		positionData.RotateCounterClockwise(5)
-		updatePosition(positionData)
+		playerPosition.RotateCounterClockwise(5)
+		updatePosition(playerPosition)
 	}
-
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		self.simulation.FireBullet(self.playerId)
+		self.startShake(15, 2)
 	}
 
+	self.camera.FocusTarget(*playerPosition)
 	self.simulation.Update()
 }
 
@@ -158,21 +173,17 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 }
 
+func (self *ArenaScene) startShake(duration int, intensity float64) {
+	self.shakeDuration = duration
+	self.shakeIntensity = intensity
+}
+
 func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 	// Draw the background.
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
 	screen.DrawImage(self.background.Image, opts)
-
-}
-
-func (self *ArenaScene) drawStillBackground(screen *ebiten.Image) {
-	// Draw the background.
-	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
-	screen.DrawImage(self.background.Image, opts)
-
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
@@ -255,7 +266,6 @@ func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
 		y_0 := (float64(sprite.Bounds().Dy()) / 2)
 
 		// Scale down the ship for the minimap
-
 		opts := &ebiten.DrawImageOptions{}
 		opts.GeoM.Translate(-x_0, -y_0)
 		opts.GeoM.Rotate(position.Angle)
