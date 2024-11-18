@@ -25,17 +25,30 @@ func NewGameSimulation() *GameSimulation {
 }
 
 func (self *GameSimulation) Update() {
-	component.Bullet.Each(self.ECS.World, func(bullet *donburi.Entry) {
-		bulletData := component.Bullet.GetValue(bullet)
-
-		// Delete the entity after the bullet expires
-		if time.Now().After(bulletData.ExpiresWhen) {
-			self.ECS.World.Remove(bullet.Entity())
-			return
+	component.Expirable.Each(self.ECS.World, func(expirable *donburi.Entry) {
+		expirableData := component.Expirable.GetValue(expirable)
+		if time.Now().After(expirableData.ExpiresWhen) {
+			self.ECS.World.Remove(expirable.Entity())
 		}
+	})
 
-		position := component.Position.Get(bullet)
-		position.Forward(-10)
+	component.Bullet.Each(self.ECS.World, func(bullet *donburi.Entry) {
+		futureBulletPosition := component.Position.GetValue(bullet)
+		futureBulletPosition.Forward(-10)
+
+		didCollide := false
+		component.Player.Each(self.ECS.World, func(player *donburi.Entry) {
+			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 10) {
+				didCollide = true
+			}
+		})
+
+		if didCollide {
+			self.spawnExplosion(&futureBulletPosition)
+			self.ECS.World.Remove(bullet.Entity())
+		} else {
+			component.Position.SetValue(bullet, futureBulletPosition)
+		}
 	})
 }
 
@@ -48,21 +61,23 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
 	bulletPosition.Angle += math.Pi
 	bulletPosition.Forward(-40)
 
-	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position)
+	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position, component.Expirable)
 	bullet := self.ECS.World.Entry(entity)
 
 	component.Bullet.SetValue(
 		bullet,
 		component.BulletData{
-			FiredBy:     playerId,
-			ExpiresWhen: time.Now().Add(2 * time.Second),
+			FiredBy: playerId,
 		},
 	)
 	component.Position.SetValue(
 		bullet,
 		bulletPosition,
 	)
-
+	component.Expirable.SetValue(
+		bullet,
+		component.NewExpirable(time.Second),
+	)
 	animationIndex := rand.Intn(len(assets.OrangeBulletAnimation))
 	component.Animation.SetValue(
 		bullet,
@@ -103,6 +118,31 @@ func (self *GameSimulation) FindCorrespondingPlayer(playerId types.PlayerId) *do
 		}
 	}
 	return nil
+}
+
+func (self *GameSimulation) spawnExplosion(position *component.PositionData) {
+	world := self.ECS.World
+	entity := world.Create(component.Position, component.Explosion, component.Animation, component.Expirable)
+	explosion := world.Entry(entity)
+
+	component.Explosion.SetValue(
+		explosion,
+		component.ExplosionData{
+			Count: rand.Intn(3),
+		},
+	)
+	component.Position.SetValue(
+		explosion,
+		*position,
+	)
+	component.Animation.SetValue(
+		explosion,
+		component.NewAnimationData(assets.BlueExplosion, 2),
+	)
+	component.Expirable.SetValue(
+		explosion,
+		component.NewExpirable(2*time.Second),
+	)
 }
 
 func getShipSprite(playerId types.PlayerId) *ebiten.Image {
