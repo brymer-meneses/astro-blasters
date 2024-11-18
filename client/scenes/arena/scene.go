@@ -90,8 +90,6 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 
 func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-<<<<<<< HEAD
-=======
 
 	if self.shakeDuration > 0 {
 		self.camera.X += (rand.Float64()*2 - 1) * self.shakeIntensity
@@ -99,8 +97,8 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 		self.shakeDuration -= 1
 	}
 
->>>>>>> f88265aeaa1bdc5efb22a4dfe6f5a2d26d0dd2b1
 	self.drawBackground(screen)
+	self.drawStillBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
 }
@@ -183,6 +181,13 @@ func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
+	screen.DrawImage(self.background.Image, opts)
+}
+
+func (self *ArenaScene) drawStillBackground(screen *ebiten.Image) {
+	// Draw the background.
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	screen.DrawImage(self.background.Image, opts)
 }
 
