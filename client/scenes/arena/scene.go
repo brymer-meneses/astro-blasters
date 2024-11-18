@@ -84,8 +84,8 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 
 func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
-
 	self.drawBackground(screen)
+	self.drawStillBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
 }
@@ -163,6 +163,14 @@ func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 	opts := &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
+	screen.DrawImage(self.background.Image, opts)
+
+}
+
+func (self *ArenaScene) drawStillBackground(screen *ebiten.Image) {
+	// Draw the background.
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	screen.DrawImage(self.background.Image, opts)
 
 }
