@@ -2,6 +2,7 @@ package game
 
 import (
 	"math"
+	"math/rand"
 	"space-shooter/assets"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
@@ -25,6 +26,14 @@ func NewGameSimulation() *GameSimulation {
 
 func (self *GameSimulation) Update() {
 	component.Bullet.Each(self.ECS.World, func(bullet *donburi.Entry) {
+		bulletData := component.Bullet.GetValue(bullet)
+
+		// Delete the entity after the bullet expires
+		if time.Now().After(bulletData.ExpiresWhen) {
+			self.ECS.World.Remove(bullet.Entity())
+			return
+		}
+
 		position := component.Position.Get(bullet)
 		position.Forward(-10)
 	})
@@ -32,9 +41,12 @@ func (self *GameSimulation) Update() {
 
 func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
 	player := self.FindCorrespondingPlayer(playerId)
-	position := component.Position.GetValue(player)
-	position.Angle += math.Pi
-	position.Forward(-40)
+	playerPosition := component.Position.Get(player)
+	playerPosition.Forward(-3)
+
+	bulletPosition := *playerPosition
+	bulletPosition.Angle += math.Pi
+	bulletPosition.Forward(-40)
 
 	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position)
 	bullet := self.ECS.World.Entry(entity)
@@ -42,17 +54,19 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
 	component.Bullet.SetValue(
 		bullet,
 		component.BulletData{
-			FiredBy:  playerId,
-			ShotWhen: time.Now(),
+			FiredBy:     playerId,
+			ExpiresWhen: time.Now().Add(2 * time.Second),
 		},
 	)
 	component.Position.SetValue(
 		bullet,
-		position,
+		bulletPosition,
 	)
+
+	animationIndex := rand.Intn(len(assets.OrangeBulletAnimation))
 	component.Animation.SetValue(
 		bullet,
-		component.NewAnimationData(assets.OrangeBulletAnimation[0], 5),
+		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
 	)
 }
 
