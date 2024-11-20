@@ -17,7 +17,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -129,6 +128,11 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		self.simulation.FireBullet(self.playerId)
 		self.startShake(15, 2)
+		message := rpc.NewBaseMessage(
+			messages.FireBullet{
+				PlayerId: self.playerId,
+			})
+		rpc.WriteMessage(context.Background(), self.connection, message)
 	}
 
 	self.camera.FocusTarget(*playerPosition)
@@ -147,28 +151,32 @@ func (self *ArenaScene) receiveServerUpdates() {
 		case "UpdatePosition":
 			{
 				var updatePosition messages.UpdatePosition
-				if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
 					continue
 				}
-
-				player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId)
-				if player != nil {
+				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
 					component.Position.SetValue(player, updatePosition.Position)
 				}
 			}
 		case "PlayerConnected":
 			{
 				var playerConnected messages.PlayerConnected
-				if err := msgpack.Unmarshal(message.Payload, &playerConnected); err != nil {
+				if err := rpc.DecodeExpectedMessage(message, &playerConnected); err != nil {
 					continue
 				}
-
 				self.simulation.SpawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
+			}
+		case "FireBullet":
+			{
+				var fireBullet messages.FireBullet
+				if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
+					continue
+				}
+				self.simulation.FireBullet(fireBullet.PlayerId)
 			}
 		default:
 		}
 	}
-
 }
 
 func (self *ArenaScene) startShake(duration int, intensity float64) {
@@ -192,49 +200,41 @@ func (self *ArenaScene) drawStillBackground(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
-	// Loop through each player and draw each of them.
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-	for player := range query.Iter(self.simulation.ECS.World) {
-		sprite := component.Sprite.GetValue(player)
-		position := component.Position.Get(player)
-
-		// Center the texture
-		x_0 := float64(sprite.Bounds().Dx()) / 2
-		y_0 := float64(sprite.Bounds().Dy()) / 2
+	drawSprite := func(position *component.PositionData, scale float64, sprite *ebiten.Image) {
+		// Center the texture.
+		x0 := float64(sprite.Bounds().Dx()) / 2
+		y0 := float64(sprite.Bounds().Dy()) / 2
 
 		opts := &ebiten.DrawImageOptions{}
-		opts.GeoM.Translate(-x_0, -y_0)
+		opts.GeoM.Translate(-x0, -y0)
 
 		opts.GeoM.Rotate(position.Angle)
-		opts.GeoM.Scale(4, 4)
+		opts.GeoM.Scale(scale, scale)
 		opts.GeoM.Translate(position.X, position.Y)
-		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
+		opts.GeoM.Translate(self.camera.X+x0, self.camera.Y+y0)
 
-		// Render at this position
 		screen.DrawImage(sprite, opts)
 	}
 
-	query = donburi.NewQuery(filter.Contains(component.Bullet, component.Position, component.Animation))
-	for bullet := range query.Iter(self.simulation.ECS.World) {
-		animation := component.Animation.Get(bullet)
-		position := component.Position.Get(bullet)
+	query := donburi.NewQuery(filter.Contains(component.Position))
+	for entity := range query.Iter(self.simulation.ECS.World) {
+		position := component.Position.Get(entity)
 
-		sprite := animation.Frame()
+		if entity.HasComponent(component.Bullet) {
+			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
+		} else if entity.HasComponent(component.Player) {
+			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
+		} else if entity.HasComponent(component.Explosion) {
+			sprite := component.Animation.Get(entity).Frame()
+			position := component.Position.GetValue(entity)
+			explosion := component.Explosion.Get(entity)
 
-		// Center the texture
-		x_0 := float64(sprite.Bounds().Dx()) / 2
-		y_0 := float64(sprite.Bounds().Dy()) / 2
-
-		opts := &ebiten.DrawImageOptions{}
-		opts.GeoM.Translate(-x_0, -y_0)
-
-		opts.GeoM.Rotate(position.Angle)
-		opts.GeoM.Scale(4, 4)
-		opts.GeoM.Translate(position.X, position.Y)
-		opts.GeoM.Translate(self.camera.X+x_0, self.camera.Y+y_0)
-
-		// Render at this position
-		screen.DrawImage(sprite, opts)
+			for i := 0; i < explosion.Count; i++ {
+				position.X += 25 * rand.Float64()
+				position.Y += 25 * rand.Float64()
+				drawSprite(&position, 4.0, sprite)
+			}
+		}
 	}
 }
 

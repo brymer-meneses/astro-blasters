@@ -16,6 +16,8 @@ var FontNarrow *text.GoTextFaceSource
 var OrangeBulletAnimation [4]SpriteSheet
 var GreenBulletAnimation [4]SpriteSheet
 
+var BlueExplosion SpriteSheet
+
 func init() {
 	Background = mustLoadSpriteFromBytes(backgrounds, 128, 256)
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
@@ -38,6 +40,14 @@ func init() {
 			TileIndex{9 + i, 3},
 		)
 	}
+
+	BlueExplosion = NewSpriteSheet(
+		miscSprite,
+		TileIndex{12, 6},
+		TileIndex{11, 6},
+		TileIndex{10, 6},
+		TileIndex{9, 6},
+	)
 }
 
 //go:embed SpaceShooterAssetPack/Miscellaneous.png

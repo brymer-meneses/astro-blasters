@@ -17,7 +17,6 @@ import (
 	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -30,8 +29,9 @@ type Server struct {
 }
 
 type playerConnection struct {
-	mutex sync.Mutex
-	conn  *websocket.Conn
+	mutex       sync.Mutex
+	conn        *websocket.Conn
+	isConnected bool
 }
 
 func NewServer() *Server {
@@ -62,11 +62,16 @@ func (self *Server) ws(w http.ResponseWriter, r *http.Request) {
 }
 
 func (self *Server) handleConnection(connection *websocket.Conn) error {
-	defer connection.CloseNow()
 	ctx := context.Background()
-
 	// Register the connected player.
 	playerId, err := self.establishConnection(ctx, connection)
+
+	defer func() {
+		connection.CloseNow()
+		self.players[playerId].isConnected = false
+		log.Println("Connection ended")
+	}()
+
 	if err != nil {
 		return err
 	}
@@ -87,15 +92,20 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 		switch message.MessageType {
 		case "UpdatePosition":
 			var updatePosition messages.UpdatePosition
-			if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
 				continue
 			}
 			self.handleUpdatePosition(&updatePosition)
 			self.broadcastMessage(playerId, message)
+		case "FireBullet":
+			var fireBullet messages.FireBullet
+			if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
+				continue
+			}
+			self.broadcastMessage(playerId, message)
 		}
 	}
 
-	log.Println("Connection ended")
 	return nil
 }
 
@@ -117,6 +127,10 @@ func (self *Server) broadcastMessage(from types.PlayerId, message rpc.BaseMessag
 
 	// For each playerid that does not match the sender, send the message.
 	for playerId, playerConn := range self.players {
+		if !playerConn.isConnected {
+			continue
+		}
+
 		if from == playerId {
 			continue
 		}
@@ -153,7 +167,11 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		Angle: 0,
 	}
 
-	self.players[playerId] = &playerConnection{conn: connection}
+	self.players[playerId] = &playerConnection{
+		conn:        connection,
+		isConnected: true,
+	}
+
 	self.simulation.SpawnPlayer(playerId, &position)
 
 	playerData := self.getPlayerData()

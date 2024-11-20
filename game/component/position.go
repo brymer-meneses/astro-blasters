@@ -11,6 +11,10 @@ type PositionData struct {
 
 var Position = donburi.NewComponentType[PositionData]()
 
+func (self *PositionData) IntersectsWith(other *PositionData, radius float64) bool {
+	return math.Pow(other.X-self.X, 2)+math.Pow(other.Y-self.Y, 2) <= math.Pow(radius, 2)
+}
+
 func (self *PositionData) Forward(magnitude float64) {
 	self.Y -= magnitude * math.Cos(self.Angle)
 	self.X += magnitude * math.Sin(self.Angle)
