@@ -11,15 +11,19 @@ type PositionData struct {
 
 var Position = donburi.NewComponentType[PositionData]()
 
-func (self *PositionData) Forward() {
-	self.Y -= 5 * math.Cos(self.Angle)
-	self.X += 5 * math.Sin(self.Angle)
+func (self *PositionData) IntersectsWith(other *PositionData, radius float64) bool {
+	return math.Pow(other.X-self.X, 2)+math.Pow(other.Y-self.Y, 2) <= math.Pow(radius, 2)
 }
 
-func (self *PositionData) RotateCounterClockwise() {
-	self.Angle += 5 * math.Pi / 180
+func (self *PositionData) Forward(magnitude float64) {
+	self.Y -= magnitude * math.Cos(self.Angle)
+	self.X += magnitude * math.Sin(self.Angle)
 }
 
-func (self *PositionData) RotateClockwise() {
-	self.Angle -= 5 * math.Pi / 180
+func (self *PositionData) RotateCounterClockwise(magnitude float64) {
+	self.Angle += magnitude * math.Pi / 180
+}
+
+func (self *PositionData) RotateClockwise(magnitude float64) {
+	self.Angle -= magnitude * math.Pi / 180
 }

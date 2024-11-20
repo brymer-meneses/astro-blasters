@@ -5,7 +5,7 @@ import (
 	"space-shooter/game/types"
 )
 
-type EnemyData struct {
+type PlayerData struct {
 	PlayerId types.PlayerId
 	Position component.PositionData
 }
@@ -13,9 +13,7 @@ type EnemyData struct {
 type EstablishConnection struct {
 	IsRoomFull bool
 	PlayerId   types.PlayerId
-	Position   component.PositionData
-
-	EnemyData []EnemyData
+	PlayerData []PlayerData
 }
 
 type PlayerConnected struct {
@@ -24,6 +22,10 @@ type PlayerConnected struct {
 }
 
 type PlayerDisconnected struct {
+	PlayerId types.PlayerId
+}
+
+type FireBullet struct {
 	PlayerId types.PlayerId
 }
 

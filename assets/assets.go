@@ -13,12 +13,45 @@ var Ships Sprite
 
 var FontNarrow *text.GoTextFaceSource
 
+var OrangeBulletAnimation [4]SpriteSheet
+var GreenBulletAnimation [4]SpriteSheet
+
+var BlueExplosion SpriteSheet
+
 func init() {
 	Background = mustLoadSpriteFromBytes(backgrounds, 128, 256)
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
-
 	FontNarrow = mustLoadFontFromBytes(munroNarrow)
+
+	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
+	for i := range 4 {
+		OrangeBulletAnimation[i] = NewSpriteSheet(
+			miscSprite,
+			TileIndex{5 + i, 0},
+			TileIndex{5 + i, 1},
+			TileIndex{5 + i, 2},
+			TileIndex{5 + i, 3},
+		)
+		GreenBulletAnimation[i] = NewSpriteSheet(
+			miscSprite,
+			TileIndex{9 + i, 0},
+			TileIndex{9 + i, 1},
+			TileIndex{9 + i, 2},
+			TileIndex{9 + i, 3},
+		)
+	}
+
+	BlueExplosion = NewSpriteSheet(
+		miscSprite,
+		TileIndex{12, 6},
+		TileIndex{11, 6},
+		TileIndex{10, 6},
+		TileIndex{9, 6},
+	)
 }
+
+//go:embed SpaceShooterAssetPack/Miscellaneous.png
+var miscellaneous []byte
 
 //go:embed MunroFont/munro-narrow.ttf
 var munroNarrow []byte

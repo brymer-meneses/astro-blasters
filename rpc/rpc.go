@@ -67,3 +67,10 @@ func ReceiveExpectedMessage[ExpectedMessage any](ctx context.Context, conn *webs
 	}
 	return msgpack.Unmarshal(baseMessage.Payload, out)
 }
+
+func DecodeExpectedMessage[ExpectedMessage any](message BaseMessage, out *ExpectedMessage) error {
+	if err := msgpack.Unmarshal(message.Payload, out); err != nil {
+		return err
+	}
+	return nil
+}

@@ -12,15 +12,19 @@ type Sprite struct {
 	TileHeight int
 }
 
-type SpriteTile struct {
-	X0, Y0, X1, Y1 int
+type TileIndex struct {
+	X int
+	Y int
 }
 
-func (self *Sprite) GetTile(tile SpriteTile) *ebiten.Image {
-	rect := image.Rect(
-		tile.X0*self.TileWidth, tile.Y0*self.TileHeight,
-		tile.X1*self.TileWidth, tile.Y1*self.TileHeight,
-	)
+func (self *Sprite) GetTile(tile TileIndex) *ebiten.Image {
+	x0 := tile.X * self.TileWidth
+	y0 := tile.Y * self.TileHeight
+
+	x1 := (tile.X + 1) * self.TileWidth
+	y1 := (tile.Y + 1) * self.TileHeight
+
+	rect := image.Rect(x0, y0, x1, y1)
 
 	return self.Image.SubImage(rect).(*ebiten.Image)
 }
