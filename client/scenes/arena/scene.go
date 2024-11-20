@@ -17,7 +17,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/vmihailenco/msgpack/v5"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -128,6 +127,11 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		self.simulation.FireBullet(self.playerId)
 		self.startShake(15, 2)
+		message := rpc.NewBaseMessage(
+			messages.FireBullet{
+				PlayerId: self.playerId,
+			})
+		rpc.WriteMessage(context.Background(), self.connection, message)
 	}
 
 	self.camera.FocusTarget(*playerPosition)
@@ -146,28 +150,32 @@ func (self *ArenaScene) receiveServerUpdates() {
 		case "UpdatePosition":
 			{
 				var updatePosition messages.UpdatePosition
-				if err := msgpack.Unmarshal(message.Payload, &updatePosition); err != nil {
+				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
 					continue
 				}
-
-				player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId)
-				if player != nil {
+				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
 					component.Position.SetValue(player, updatePosition.Position)
 				}
 			}
 		case "PlayerConnected":
 			{
 				var playerConnected messages.PlayerConnected
-				if err := msgpack.Unmarshal(message.Payload, &playerConnected); err != nil {
+				if err := rpc.DecodeExpectedMessage(message, &playerConnected); err != nil {
 					continue
 				}
-
 				self.simulation.SpawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
+			}
+		case "FireBullet":
+			{
+				var fireBullet messages.FireBullet
+				if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
+					continue
+				}
+				self.simulation.FireBullet(fireBullet.PlayerId)
 			}
 		default:
 		}
 	}
-
 }
 
 func (self *ArenaScene) startShake(duration int, intensity float64) {

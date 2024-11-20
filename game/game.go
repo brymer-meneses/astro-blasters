@@ -52,7 +52,7 @@ func (self *GameSimulation) Update() {
 	})
 }
 
-func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
+func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
 	player := self.FindCorrespondingPlayer(playerId)
 	playerPosition := component.Position.Get(player)
 	playerPosition.Forward(-3)
@@ -83,6 +83,8 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) {
 		bullet,
 		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
 	)
+
+	return bullet
 }
 
 func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData) *donburi.Entry {

@@ -25,6 +25,10 @@ type PlayerDisconnected struct {
 	PlayerId types.PlayerId
 }
 
+type FireBullet struct {
+	PlayerId types.PlayerId
+}
+
 type UpdatePosition struct {
 	PlayerId types.PlayerId
 	Position component.PositionData
