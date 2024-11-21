@@ -29,12 +29,12 @@ func (self *Camera) FocusTarget(target component.PositionData) {
 	self.Y = -target.Y + float64(self.config.ScreenHeight)/2.0
 }
 
-func (self *Camera) Constrain(tileMapWidth, tileMapHeight float64) {
+func (self *Camera) Constrain() {
 	self.X = math.Min(self.X, 0)
 	self.Y = math.Min(self.Y, 0)
 
-	self.X = math.Max(self.X, -self.SceneWidth/2.0)
-	self.Y = math.Max(self.Y, -self.SceneHeight/2.0)
+	self.X = math.Max(self.X, -float64(self.SceneWidth)+float64(self.config.ScreenWidth))
+	self.Y = math.Max(self.Y, -float64(self.SceneHeight)+float64(self.config.ScreenHeight))
 }
 
 func clamp(value, min, max float64) float64 {
