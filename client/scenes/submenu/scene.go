@@ -4,9 +4,10 @@ import (
 	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
-	"space-shooter/client/scenes/arena"
 	"space-shooter/client/scenes/common"
+	"space-shooter/client/scenes/starter"
 	"sync"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
@@ -15,33 +16,77 @@ import (
 type SubMenuScene struct {
 	config     *config.ClientConfig
 	background *common.Background
+	border     *common.Border
+	arrow      *common.Arrow
+	bar        *common.Bar
 	once       sync.Once
+	visible    bool
+	ticker     *time.Ticker
 }
 
 func NewSubMenuScene(config *config.ClientConfig) *SubMenuScene {
-	return &SubMenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight)}
+	return &SubMenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), border: common.NewBorder(16, 16), arrow: common.NewArrow(8, 8), bar: common.NewBar(8, 4), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
 }
 
 func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	screen.DrawImage(self.background.Image, nil)
 
+	// Draw the Title box and Title
+	opts1 := &ebiten.DrawImageOptions{}
+	imageWidth := self.border.Image.Bounds().Dx()
+	opts1.GeoM.Scale(25, 7)
+	opts1.GeoM.Translate(float64(self.config.ScreenWidth-imageWidth)/3, 50)
+	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), opts1)
+
 	fontface := text.GoTextFace{Source: assets.FontNarrow}
 	lineSpacing := 10
 
-	// Draw the title
-	self.drawText(screen, "How to Play", fontface, 100, float64(self.config.ScreenWidth)/2, 100, lineSpacing)
+	self.drawText(screen, "Welcome Cadet!", fontface, 50, 550, 105, lineSpacing)
 
-	self.drawText(screen, "> Press 'W' to move forward <", fontface, 50, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-450, lineSpacing)
-	self.drawText(screen, "> Press 'A' to rotate clockwise <", fontface, 50, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-400, lineSpacing)
-	self.drawText(screen, "> Press 'D' to rotate counterclockwise <", fontface, 50, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-350, lineSpacing)
-	self.drawText(screen, "> Press 'Spacebar' to shoot bullets <", fontface, 50, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-300, lineSpacing)
+	// Draw the Instructions box for the controls
+	// Borders and Arrows
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 60, 31, 0, 50, 185)
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 60, 31, 0, 50, 185)
 
-	self.drawText(screen, "You are now ready to play.", fontface, 25, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-200, lineSpacing)
+	// Text blocks
+	self.drawText(screen, "The galaxy needs a hero and YOU are our last hope. Blast enemy ships and protect the", fontface, 26, 530, 255, lineSpacing)
+	self.drawText(screen, "fate of the stars! Before you take-off, here's your mission briefing on the controls.", fontface, 26, 530, 285, lineSpacing)
+	self.drawText(screen, "Use the arrow keys to navigate your ship—learn them well and may your aim be true!", fontface, 26, 530, 315, lineSpacing)
 
-	self.drawText(screen, "Good luck and may the force be with you!", fontface, 25, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-175, lineSpacing)
-	// Draw the subtitle
-	self.drawText(screen, "Press 'S' to Start the Game", fontface, 50, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-75, lineSpacing)
+	// Right arrow instruction
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 3.5, 3.5, 0, 200, 350)
+	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 6, Y: 10}), 5, 5, 0, 206, 360)
+	self.drawText(screen, "Press the right arrow key to rotate clockwise", fontface, 30, 510, 380, lineSpacing)
+
+	// Up arrow instruction
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 3.5, 3.5, 0, 200, 410)
+	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 6, Y: 10}), 5, 5, -1.5708, 210, 460)
+	self.drawText(screen, "Press the up arrow key to move forward", fontface, 30, 485, 440, lineSpacing)
+
+	// Left arrow instruction
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 3.5, 3.5, 0, 200, 470)
+	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 6, Y: 10}), 5, 5, 3.14159, 248, 516)
+	self.drawText(screen, "Press the left arrow key to rotate counterclockwise", fontface, 30, 543, 500, lineSpacing)
+
+	// Spacebar instruction
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 3.5, 3.5, 0, 200, 530)
+	self.drawTransformedImage(screen, assets.Bar.GetTile(assets.TileIndex{X: 5, Y: 24}), 5, 5, 0, 208, 555)
+	self.drawText(screen, "Press the spacebar to shoot bullets", fontface, 30, 458, 560, lineSpacing)
+
+	// Draw subtext
+	if self.visible {
+		self.drawText(screen, "Press P To Proceed", fontface, 40, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-100, lineSpacing)
+	}
+}
+
+// Helper function to draw an image with transformations
+func (self *SubMenuScene) drawTransformedImage(screen *ebiten.Image, image *ebiten.Image, scaleX, scaleY, rotate, translateX, translateY float64) {
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Scale(scaleX, scaleY)
+	opts.GeoM.Rotate(rotate) // Rotation in radians; use 0 for no rotation
+	opts.GeoM.Translate(translateX, translateY)
+	screen.DrawImage(image, opts)
 }
 
 // Helper function to draw centered text with specified font size
@@ -57,10 +102,17 @@ func (self *SubMenuScene) drawText(screen *ebiten.Image, msg string, fontface te
 }
 
 func (self *SubMenuScene) Update(dispatcher *scenes.Dispatcher) {
-	if ebiten.IsKeyPressed(ebiten.KeyS) {
+	// Toggle visibility every tick
+	select {
+	case <-self.ticker.C:
+		self.visible = !self.visible
+	default:
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyP) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(arena.NewArenaScene(self.config))
+				dispatcher.Dispatch(starter.NewStarterScene(self.config))
 			})
 	}
 }

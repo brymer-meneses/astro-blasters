@@ -112,15 +112,15 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	}
 
 	playerPosition := component.Position.Get(self.player)
-	if ebiten.IsKeyPressed(ebiten.KeyW) {
+	if ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
 		playerPosition.Forward(5)
 		updatePosition(playerPosition)
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) {
+	if ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
 		playerPosition.RotateClockwise(5)
 		updatePosition(playerPosition)
 	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) {
+	if ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
 		playerPosition.RotateCounterClockwise(5)
 		updatePosition(playerPosition)
 	}
