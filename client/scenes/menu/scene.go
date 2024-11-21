@@ -17,22 +17,21 @@ import (
 type MenuScene struct {
 	config     *config.ClientConfig
 	background *common.Background
-	border     *common.Border
 	once       sync.Once
 	visible    bool
 	ticker     *time.Ticker
 }
 
 func NewMenuScene(config *config.ClientConfig) *MenuScene {
-	return &MenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), border: common.NewBorder(16, 16), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
+	return &MenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
 }
 
 func (self *MenuScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	screen.DrawImage(self.background.Image, nil)
 
-	imageWidth := self.border.Image.Bounds().Dx()
-	imageHeight := self.border.Image.Bounds().Dy()
+	imageWidth := assets.Borders.Image.Bounds().Dx()
+	imageHeight := assets.Borders.Image.Bounds().Dy()
 	centerX := (float64(self.config.ScreenWidth-imageWidth) / 4) + 30
 	centerY := float64(self.config.ScreenHeight-imageHeight) / 4
 

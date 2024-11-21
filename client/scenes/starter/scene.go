@@ -19,7 +19,6 @@ import (
 type StarterScene struct {
 	config        *config.ClientConfig
 	background    *common.Background
-	border        *common.Border
 	once          sync.Once
 	inputText     string
 	isFocused     bool
@@ -30,7 +29,7 @@ type StarterScene struct {
 }
 
 func NewStarterScene(config *config.ClientConfig) *StarterScene {
-	return &StarterScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), border: common.NewBorder(16, 16), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
+	return &StarterScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
 }
 
 func (self *StarterScene) Draw(screen *ebiten.Image) {
