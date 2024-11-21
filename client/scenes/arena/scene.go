@@ -29,12 +29,14 @@ const (
 )
 
 type ArenaScene struct {
-	connection *websocket.Conn
-	simulation *game.GameSimulation
-	background *common.Background
-	player     *donburi.Entry
-	playerId   types.PlayerId
-	camera     *Camera
+	connection  *websocket.Conn
+	simulation  *game.GameSimulation
+	background1 *common.Background
+	background2 *common.Background
+
+	player   *donburi.Entry
+	playerId types.PlayerId
+	camera   *Camera
 
 	isShaking      bool
 	shakeDuration  int
@@ -74,13 +76,14 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background: common.NewBackground(MapWidth, MapHeight),
-		playerId:   message.PlayerId,
-		player:     mainPlayer,
-		simulation: simulation,
-		connection: connection,
-		camera:     camera,
-		isShaking:  false,
+		background1: common.NewBackground(MapWidth, MapHeight),
+		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:    message.PlayerId,
+		player:      mainPlayer,
+		simulation:  simulation,
+		connection:  connection,
+		camera:      camera,
+		isShaking:   false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -99,6 +102,7 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	self.drawBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
+
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
@@ -186,8 +190,14 @@ func (self *ArenaScene) startShake(duration int, intensity float64) {
 // Draw the background.
 func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Scale(2.0, 2.0)
+	opts.GeoM.Translate(0.2*self.camera.X, 0.2*self.camera.Y)
+	opts.ColorScale.Scale(1, 1, 1, 0.2)
+	screen.DrawImage(self.background2.Image, opts)
+
+	opts = &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
-	screen.DrawImage(self.background.Image, opts)
+	screen.DrawImage(self.background1.Image, opts)
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
