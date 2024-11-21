@@ -30,8 +30,9 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	screen.DrawImage(self.background.Image, nil)
 
-	imageWidth := assets.Borders.Image.Bounds().Dx()
-	imageHeight := assets.Borders.Image.Bounds().Dy()
+	imageWidth := assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 0}).Bounds().Dx()
+	imageHeight := assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 0}).Bounds().Dy()
+
 	centerX := (float64(self.config.ScreenWidth-imageWidth) / 4) + 30
 	centerY := float64(self.config.ScreenHeight-imageHeight) / 4
 

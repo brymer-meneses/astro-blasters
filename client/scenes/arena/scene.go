@@ -58,7 +58,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, config)
+	camera := NewCamera(0, 0, MapHeight, MapWidth, config)
 	simulation := game.NewGameSimulation()
 	var mainPlayer *donburi.Entry
 
@@ -117,12 +117,11 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 		updatePosition(playerPosition)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		playerPosition.RotateClockwise(5)
+		playerPosition.Rotate(-5)
 		updatePosition(playerPosition)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		playerPosition.RotateCounterClockwise(5)
-		updatePosition(playerPosition)
+		playerPosition.Rotate(5)
 	}
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		self.simulation.FireBullet(self.playerId)
@@ -135,6 +134,7 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	}
 
 	self.camera.FocusTarget(*playerPosition)
+	self.camera.Constrain(512, 512)
 	self.simulation.Update()
 }
 
@@ -183,10 +183,9 @@ func (self *ArenaScene) startShake(duration int, intensity float64) {
 	self.shakeIntensity = intensity
 }
 
+// Draw the background.
 func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
-	// Draw the background.
 	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
 	screen.DrawImage(self.background.Image, opts)
 }

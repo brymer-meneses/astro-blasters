@@ -22,7 +22,7 @@ var GreenBulletAnimation [4]SpriteSheet
 var BlueExplosion SpriteSheet
 
 func init() {
-	Background = mustLoadSpriteFromBytes(backgrounds, 128, 256)
+	Background = mustLoadSpriteFromBytes(background, 512, 512)
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
 	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
 	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
@@ -62,8 +62,8 @@ var miscellaneous []byte
 //go:embed MunroFont/munro-narrow.ttf
 var munroNarrow []byte
 
-//go:embed SpaceShooterAssetPack/BackGrounds.png
-var backgrounds []byte
+//go:embed background.png
+var background []byte
 
 //go:embed SpaceShooterAssetPack/Ships.png
 var ships []byte
