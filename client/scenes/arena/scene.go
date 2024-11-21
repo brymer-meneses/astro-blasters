@@ -1,10 +1,6 @@
 package arena
 
 import (
-	"context"
-	"image/color"
-	"log"
-	"math/rand/v2"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
@@ -13,6 +9,11 @@ import (
 	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
+
+	"context"
+	"image/color"
+	"log"
+	"math/rand/v2"
 	"time"
 
 	"github.com/coder/websocket"
@@ -22,8 +23,8 @@ import (
 )
 
 const (
-	MapWidth      = 4000
-	MapHeight     = 4000
+	MapWidth      = 4096
+	MapHeight     = 4096
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
@@ -36,7 +37,6 @@ type ArenaScene struct {
 	playerId   types.PlayerId
 	camera     *Camera
 
-	isShaking      bool
 	shakeDuration  int
 	shakeIntensity float64
 }
@@ -58,7 +58,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, config)
+	camera := NewCamera(0, 0, MapWidth, MapHeight, config)
 	simulation := game.NewGameSimulation()
 	var mainPlayer *donburi.Entry
 
@@ -80,7 +80,6 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		simulation: simulation,
 		connection: connection,
 		camera:     camera,
-		isShaking:  false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -135,6 +134,7 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	}
 
 	self.camera.FocusTarget(*playerPosition)
+	self.camera.Constrain()
 	self.simulation.Update()
 }
 
