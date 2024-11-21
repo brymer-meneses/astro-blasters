@@ -57,9 +57,7 @@ func (self *GameSimulation) Update() {
 }
 
 func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
-
-	time.Sleep(30 * time.Millisecond)
-
+	
 	player := self.FindCorrespondingPlayer(playerId)
 	playerPosition := component.Position.Get(player)
 	playerPosition.Forward(-3)
