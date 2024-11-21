@@ -7,7 +7,7 @@ import (
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"time"
-
+	"log"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
@@ -38,7 +38,11 @@ func (self *GameSimulation) Update() {
 
 		didCollide := false
 		component.Player.Each(self.ECS.World, func(player *donburi.Entry) {
-			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 10) {
+			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
+				playerData := component.Player.GetValue(player)
+				playerData.Health -=5
+				component.Player.SetValue(player, playerData)
+				log.Printf("Player ID %d's health successfully updated to %.2f", playerData.Id, playerData.Health)
 				didCollide = true
 			}
 		})
@@ -53,6 +57,9 @@ func (self *GameSimulation) Update() {
 }
 
 func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
+
+	time.Sleep(30 * time.Millisecond)
+
 	player := self.FindCorrespondingPlayer(playerId)
 	playerPosition := component.Position.Get(player)
 	playerPosition.Forward(-3)
@@ -83,7 +90,7 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
 		bullet,
 		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
 	)
-
+	
 	return bullet
 }
 
@@ -97,6 +104,7 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 		component.PlayerData{
 			Name: "Player One",
 			Id:   playerId,
+			Health: 100,
 		},
 	)
 	component.Position.SetValue(
@@ -151,3 +159,4 @@ func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
 	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
 }
+
