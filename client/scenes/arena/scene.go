@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	MapWidth      = 4000
-	MapHeight     = 4000
+	MapWidth      = 4096
+	MapHeight     = 4096
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
@@ -134,7 +134,7 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	}
 
 	self.camera.FocusTarget(*playerPosition)
-	self.camera.Constrain(512, 512)
+	self.camera.Constrain()
 	self.simulation.Update()
 }
 
