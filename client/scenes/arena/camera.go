@@ -1,6 +1,7 @@
 package arena
 
 import (
+	"math"
 	"space-shooter/client/config"
 	"space-shooter/game/component"
 )
@@ -28,9 +29,9 @@ func (self *Camera) FocusTarget(target component.PositionData) {
 	self.Y = -target.Y + float64(self.config.ScreenHeight)/2.0
 }
 
-func (self *Camera) Constrain() {
-	self.X = clamp(self.X, -self.SceneWidth/2, self.SceneWidth/2)
-	self.Y = clamp(self.Y, -self.SceneHeight/2, self.SceneHeight/2)
+func (self *Camera) Constrain(tileMapWidth, tileMapHeight float64) {
+	self.X = math.Min(self.X, 0)
+	self.Y = math.Min(self.Y, 0)
 }
 
 func clamp(value, min, max float64) float64 {

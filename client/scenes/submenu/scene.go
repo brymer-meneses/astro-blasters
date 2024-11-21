@@ -16,16 +16,13 @@ import (
 type SubMenuScene struct {
 	config     *config.ClientConfig
 	background *common.Background
-	border     *common.Border
-	arrow      *common.Arrow
-	bar        *common.Bar
 	once       sync.Once
 	visible    bool
 	ticker     *time.Ticker
 }
 
 func NewSubMenuScene(config *config.ClientConfig) *SubMenuScene {
-	return &SubMenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), border: common.NewBorder(16, 16), arrow: common.NewArrow(8, 8), bar: common.NewBar(8, 4), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
+	return &SubMenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
 }
 
 func (self *SubMenuScene) Draw(screen *ebiten.Image) {
@@ -34,7 +31,7 @@ func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 
 	// Draw the Title box and Title
 	opts1 := &ebiten.DrawImageOptions{}
-	imageWidth := self.border.Image.Bounds().Dx()
+	imageWidth := assets.Borders.Image.Bounds().Dx()
 	opts1.GeoM.Scale(25, 7)
 	opts1.GeoM.Translate(float64(self.config.ScreenWidth-imageWidth)/3, 50)
 	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), opts1)

@@ -20,10 +20,6 @@ func (self *PositionData) Forward(magnitude float64) {
 	self.X += magnitude * math.Sin(self.Angle)
 }
 
-func (self *PositionData) RotateCounterClockwise(magnitude float64) {
+func (self *PositionData) Rotate(magnitude float64) {
 	self.Angle += magnitude * math.Pi / 180
-}
-
-func (self *PositionData) RotateClockwise(magnitude float64) {
-	self.Angle -= magnitude * math.Pi / 180
 }
