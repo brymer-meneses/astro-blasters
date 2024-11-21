@@ -10,6 +10,9 @@ import (
 
 var Background Sprite
 var Ships Sprite
+var Borders Sprite
+var Arrows Sprite
+var Bar Sprite
 
 var FontNarrow *text.GoTextFaceSource
 
@@ -21,6 +24,9 @@ var BlueExplosion SpriteSheet
 func init() {
 	Background = mustLoadSpriteFromBytes(backgrounds, 128, 256)
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
+	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
+	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
+	Bar = mustLoadSpriteFromBytes(iu, 8, 4)
 	FontNarrow = mustLoadFontFromBytes(munroNarrow)
 
 	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
@@ -61,6 +67,9 @@ var backgrounds []byte
 
 //go:embed SpaceShooterAssetPack/Ships.png
 var ships []byte
+
+//go:embed SpaceShooterAssetPack/IU.png
+var iu []byte
 
 func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
