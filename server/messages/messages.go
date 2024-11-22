@@ -6,12 +6,18 @@ import (
 )
 
 type PlayerData struct {
-	PlayerId types.PlayerId
-	Position component.PositionData
+	PlayerId   types.PlayerId
+	PlayerName string
+	Position   component.PositionData
 }
 
-type EstablishConnection struct {
+type ConnectionHandshake struct {
+	PlayerName string
+}
+
+type ConnectionHandshakeResponse struct {
 	IsRoomFull bool
+
 	PlayerId   types.PlayerId
 	PlayerData []PlayerData
 }
@@ -41,8 +47,9 @@ type EventPlayerMove struct {
 // Message sent from the server to the clients to render the
 // following position of the new player.
 type EventPlayerConnected struct {
-	PlayerId types.PlayerId
-	Position component.PositionData
+	PlayerId   types.PlayerId
+	PlayerName string
+	Position   component.PositionData
 }
 
 // Message sent from the server to the clients to tell the clients that the

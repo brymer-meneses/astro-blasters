@@ -36,7 +36,7 @@ func (self *StarterScene) Draw(screen *ebiten.Image) {
 	screen.Clear()
 	screen.DrawImage(self.background.Image, nil)
 
-	fontface := text.GoTextFace{Source: assets.FontNarrow}
+	fontface := text.GoTextFace{Source: assets.MunroNarrow}
 	lineSpacing := 10
 
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 3}), 60, 15, 0, 50, 185)
@@ -143,7 +143,7 @@ func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(arena.NewArenaScene(self.config))
+				dispatcher.Dispatch(arena.NewArenaScene(self.config, self.inputText))
 			})
 	}
 }

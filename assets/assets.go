@@ -14,7 +14,8 @@ var Borders Sprite
 var Arrows Sprite
 var Bar Sprite
 
-var FontNarrow *text.GoTextFaceSource
+var Munro *text.GoTextFaceSource
+var MunroNarrow *text.GoTextFaceSource
 
 var OrangeBulletAnimation [4]SpriteSheet
 var GreenBulletAnimation [4]SpriteSheet
@@ -27,7 +28,9 @@ func init() {
 	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
 	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
 	Bar = mustLoadSpriteFromBytes(iu, 8, 4)
-	FontNarrow = mustLoadFontFromBytes(munroNarrow)
+
+	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
+	Munro = mustLoadFontFromBytes(munro)
 
 	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
 	for i := range 4 {
@@ -61,6 +64,9 @@ var miscellaneous []byte
 
 //go:embed MunroFont/munro-narrow.ttf
 var munroNarrow []byte
+
+//go:embed MunroFont/munro.ttf
+var munro []byte
 
 //go:embed background.png
 var background []byte

@@ -32,7 +32,7 @@ func (self *LeaderboardScene) Draw(screen *ebiten.Image) {
 	opts1.GeoM.Translate((float64(self.config.ScreenWidth-imageWidth)/3)+55, 30)
 	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 0}), opts1)
 
-	fontface := text.GoTextFace{Source: assets.FontNarrow}
+	fontface := text.GoTextFace{Source: assets.MunroNarrow}
 	lineSpacing := 10
 
 	self.drawText(screen, "Leaderboard", fontface, 50, 550, 85, lineSpacing)

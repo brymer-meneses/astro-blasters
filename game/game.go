@@ -147,7 +147,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	return bullet
 }
 
-func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData) *donburi.Entry {
+func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
 	world := self.ECS.World
 	entity := world.Create(component.Player, component.Position, component.Sprite)
 	player := world.Entry(entity)
@@ -155,7 +155,7 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 	component.Player.SetValue(
 		player,
 		component.PlayerData{
-			Name:   "Player One",
+			Name:   playerName,
 			Id:     playerId,
 			Health: 100,
 		},

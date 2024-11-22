@@ -175,9 +175,15 @@ func (self *Server) getAvailablePlayerId() (types.PlayerId, error) {
 }
 
 func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (types.PlayerId, error) {
+	var connectionHandshake messages.ConnectionHandshake
+	if err := rpc.ReceiveExpectedMessage(ctx, connection, &connectionHandshake); err != nil {
+		return types.InvalidPlayerId, nil
+	}
+
 	playerId, err := self.getAvailablePlayerId()
 	if err != nil {
-		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, rpc.NewBaseMessage(messages.EstablishConnection{IsRoomFull: true}))
+		response := rpc.NewBaseMessage(messages.ConnectionHandshakeResponse{IsRoomFull: true})
+		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, response)
 	}
 
 	position := component.PositionData{
@@ -191,13 +197,13 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		isConnected: true,
 	}
 
-	self.simulation.SpawnPlayer(playerId, &position)
+	self.simulation.SpawnPlayer(playerId, &position, connectionHandshake.PlayerName)
 
 	playerData := self.getPlayerData()
 	err = rpc.WriteMessage(
 		ctx,
 		connection,
-		rpc.NewBaseMessage(messages.EstablishConnection{
+		rpc.NewBaseMessage(messages.ConnectionHandshakeResponse{
 			PlayerId:   playerId,
 			PlayerData: playerData,
 			IsRoomFull: false,
@@ -208,9 +214,11 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		log.Fatal(err)
 	}
 
+	// Tell the other players that this player has joined.
 	self.broadcastMessageExcept(playerId, rpc.NewBaseMessage(messages.EventPlayerConnected{
-		PlayerId: playerId,
-		Position: position,
+		PlayerId:   playerId,
+		PlayerName: connectionHandshake.PlayerName,
+		Position:   position,
 	}))
 
 	return playerId, nil
@@ -223,9 +231,11 @@ func (self *Server) getPlayerData() []messages.PlayerData {
 	i := 0
 
 	for player := range query.Iter(self.simulation.ECS.World) {
+		data := component.Player.Get(player)
 		enemyData[i] = messages.PlayerData{
-			PlayerId: component.Player.Get(player).Id,
-			Position: *component.Position.Get(player),
+			PlayerId:   data.Id,
+			PlayerName: data.Name,
+			Position:   *component.Position.Get(player),
 		}
 		i++
 	}

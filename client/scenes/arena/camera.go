@@ -36,13 +36,3 @@ func (self *Camera) Constrain() {
 	self.X = math.Max(self.X, -float64(self.SceneWidth)+float64(self.config.ScreenWidth))
 	self.Y = math.Max(self.Y, -float64(self.SceneHeight)+float64(self.config.ScreenHeight))
 }
-
-func clamp(value, min, max float64) float64 {
-	if value >= max {
-		return max
-	}
-	if value <= min {
-		return min
-	}
-	return value
-}
