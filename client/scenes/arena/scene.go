@@ -119,25 +119,25 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 		rpc.WriteMessage(ctx, self.connection, message)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyW) || inpututil.IsKeyJustPressed(ebiten.KeyUp) {
 		sendMove(types.PlayerStartForward)
 	}
-	if inpututil.IsKeyJustReleased(ebiten.KeyW) {
+	if inpututil.IsKeyJustReleased(ebiten.KeyW) || inpututil.IsKeyJustReleased(ebiten.KeyUp) {
 		sendMove(types.PlayerStopForward)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		sendMove(types.PlayerStartRotateCounterClockwise)
-	}
-	if inpututil.IsKeyJustReleased(ebiten.KeyD) {
-		sendMove(types.PlayerStopRotateCounterClockwise)
-	}
-
-	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyD) || inpututil.IsKeyJustPressed(ebiten.KeyRight) {
 		sendMove(types.PlayerStartRotateClockwise)
 	}
-	if inpututil.IsKeyJustReleased(ebiten.KeyA) {
+	if inpututil.IsKeyJustReleased(ebiten.KeyD) || inpututil.IsKeyJustReleased(ebiten.KeyRight) {
 		sendMove(types.PlayerStopRotateClockwise)
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) || inpututil.IsKeyJustPressed(ebiten.KeyLeft) {
+		sendMove(types.PlayerStartRotateCounterClockwise)
+	}
+	if inpututil.IsKeyJustReleased(ebiten.KeyA) || inpututil.IsKeyJustReleased(ebiten.KeyLeft) {
+		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
