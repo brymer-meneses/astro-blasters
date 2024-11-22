@@ -17,6 +17,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -29,16 +30,15 @@ const (
 )
 
 type ArenaScene struct {
-	connection  *websocket.Conn
-	simulation  *game.GameSimulation
-	background1 *common.Background
-	background2 *common.Background
-  lastFireTime time.Time
-	player   *donburi.Entry
-	playerId types.PlayerId
-	camera   *Camera
+	connection   *websocket.Conn
+	simulation   *game.GameSimulation
+	background1  *common.Background
+	background2  *common.Background
+	lastFireTime time.Time
+	player       *donburi.Entry
+	playerId     types.PlayerId
+	camera       *Camera
 
-	isShaking      bool
 	shakeDuration  int
 	shakeIntensity float64
 }
@@ -83,7 +83,6 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		simulation:  simulation,
 		connection:  connection,
 		camera:      camera,
-		isShaking:   false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -102,85 +101,49 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	self.drawBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
-
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
-     updatePosition := func(positionData *component.PositionData) {
-        message := rpc.NewBaseMessage(
-            messages.UpdatePosition{
-                PlayerId: self.playerId,
-                Position: *positionData,
-            })
-        rpc.WriteMessage(context.Background(), self.connection, message)
-    }
+	ctx := context.Background()
+	position := component.Position.Get(self.player)
 
-    playerPosition := component.Position.Get(self.player)
-    if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-      playerPosition.Forward(5)
-      updatePosition(playerPosition)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-      playerPosition.Rotate(-5)
-      updatePosition(playerPosition)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-      playerPosition.Rotate(5)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeySpace) {
-      self.simulation.FireBullet(self.playerId)
-      self.startShake(15, 2)
-      message := rpc.NewBaseMessage(
-        messages.FireBullet{
-          PlayerId: self.playerId,
-        })
-      rpc.WriteMessage(context.Background(), self.connection, message)
-    }
-
-    self.camera.FocusTarget(*playerPosition)
-    self.camera.Constrain()
-    self.simulation.Update()
-}
-
-
-// Receives information from the server and updates the game state accordingly.
-func (self *ArenaScene) receiveServerUpdates() {
-	for {
-		var message rpc.BaseMessage
-		if err := rpc.ReceiveMessage(context.Background(), self.connection, &message); err != nil {
-			continue
-		}
-
-		switch message.MessageType {
-		case "UpdatePosition":
-			{
-				var updatePosition messages.UpdatePosition
-				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
-					continue
-				}
-				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
-					component.Position.SetValue(player, updatePosition.Position)
-				}
-			}
-		case "PlayerConnected":
-			{
-				var playerConnected messages.PlayerConnected
-				if err := rpc.DecodeExpectedMessage(message, &playerConnected); err != nil {
-					continue
-				}
-				self.simulation.SpawnPlayer(playerConnected.PlayerId, &playerConnected.Position)
-			}
-		case "FireBullet":
-			{
-				var fireBullet messages.FireBullet
-				if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
-					continue
-				}
-				self.simulation.FireBullet(fireBullet.PlayerId)
-			}
-		default:
-		}
+	sendMove := func(move types.PlayerMove) {
+		message := rpc.NewBaseMessage(messages.RegisterPlayerMove{Move: move, Position: *position})
+		rpc.WriteMessage(ctx, self.connection, message)
 	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyW) {
+		sendMove(types.PlayerStartForward)
+	}
+	if inpututil.IsKeyJustReleased(ebiten.KeyW) {
+		sendMove(types.PlayerStopForward)
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
+		sendMove(types.PlayerStartRotateCounterClockwise)
+	}
+	if inpututil.IsKeyJustReleased(ebiten.KeyD) {
+		sendMove(types.PlayerStopRotateCounterClockwise)
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+		sendMove(types.PlayerStartRotateClockwise)
+	}
+	if inpututil.IsKeyJustReleased(ebiten.KeyA) {
+		sendMove(types.PlayerStopRotateClockwise)
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		sendMove(types.PlayerStartFireBullet)
+	}
+	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
+		sendMove(types.PlayerStopFireBullet)
+	}
+
+	self.simulation.Update()
+
+	self.camera.FocusTarget(*position)
+	self.camera.Constrain()
 }
 
 func (self *ArenaScene) startShake(duration int, intensity float64) {
@@ -314,4 +277,44 @@ func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
 	rightBorderOpts := *minimapScreenOpts
 	rightBorderOpts.GeoM.Translate(float64(MinimapWidth+borderSize), 0)
 	screen.DrawImage(rightBorder, &rightBorderOpts)
+}
+
+// Receives information from the server and updates the game state accordingly.
+func (self *ArenaScene) receiveServerUpdates() {
+	for {
+		var message rpc.BaseMessage
+		if err := rpc.ReceiveMessage(context.Background(), self.connection, &message); err != nil {
+			continue
+		}
+
+		switch message.MessageType {
+		case "UpdatePosition":
+			{
+				var updatePosition messages.UpdatePosition
+				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
+					continue
+				}
+				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
+					component.Position.SetValue(player, updatePosition.Position)
+				}
+			}
+		case "EventPlayerConnected":
+			{
+				var eventPlayerConnected messages.EventPlayerConnected
+				if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
+					continue
+				}
+				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position)
+			}
+		case "EventPlayerMove":
+			{
+				var eventPlayerMove messages.EventPlayerMove
+				if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
+					continue
+				}
+				self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+			}
+		default:
+		}
+	}
 }
