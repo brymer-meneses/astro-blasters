@@ -8,6 +8,7 @@ import (
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
+	"space-shooter/client/scenes/leaderboard"
 	"space-shooter/game"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
@@ -110,6 +111,14 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
+	// for testing only
+	if ebiten.IsKeyPressed(ebiten.KeyL) {
+		self.once.Do(
+			func() {
+				dispatcher.Dispatch(leaderboard.NewLeaderboardScene(self.config))
+			})
+	}
+
 	updatePosition := func(positionData *component.PositionData) {
 		message := rpc.NewBaseMessage(
 			messages.UpdatePosition{
