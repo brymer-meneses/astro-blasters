@@ -117,6 +117,22 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	self.drawBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
+
+	// if player is dead (ui only) {
+	// Make the entire screen gray with overlay
+	// overlay := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+	// overlay.Fill(color.RGBA{64, 64, 64, 128})
+
+	// opts := &ebiten.DrawImageOptions{}
+	// screen.DrawImage(overlay, opts)
+
+	// imageWidth := assets.Borders.Image.Bounds().Dx()
+	// self.drawMessage(screen, assets.Messagebar.GetTile(assets.TileIndex{X: 0, Y: 8}), 35, 35, 0, float64(self.config.ScreenWidth-imageWidth)/3-158, float64(self.config.ScreenHeight)/3, [4]float32{1, 1, 1, 1})
+
+	// fontface := text.GoTextFace{Source: assets.MunroNarrow}
+	// lineSpacing := 10
+	// self.drawText(screen, "You have been struck down. Respawn and fight again!", fontface, 35, 560, 380, lineSpacing, [4]float32{0, 0, 0, 1})
+	// } //add backend part: 5 second countdown before respawn, can't move when dead, etc.
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
@@ -211,21 +227,25 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 
 		if entity.HasComponent(component.Player) {
 			player := component.Player.Get(entity)
-			sprite := component.Sprite.GetValue(entity)
 
 			font := text.GoTextFace{Source: assets.Munro, Size: 20}
-			width, height := text.Measure(player.Name, &font, 12)
+			width, _ := text.Measure(player.Name, &font, 12)
 
-			dx := width/2 + float64(sprite.Bounds().Dx())
-			dy := height/2 + float64(sprite.Bounds().Dy())
+			// Calculate the position of the text to center it above the health bar
+			x := (position.X - width/2) + 6 // Center horizontally
+			y := position.Y - 55            // Above the health bar
 
+			// Apply camera translation
+			x += self.camera.X
+			y += self.camera.Y
+
+			// Set up the text drawing options
 			opts := &text.DrawOptions{}
-			opts.GeoM.Translate(-dx, -dy)
-			opts.GeoM.Translate(position.X, position.Y-50)
-			opts.GeoM.Translate(self.camera.X+dx, self.camera.Y+dy)
+			opts.GeoM.Translate(x, y)
 
 			text.Draw(screen, player.Name, &font, opts)
 
+			self.drawHealthBar(screen, position, player.Health, 100)
 			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
 		} else if entity.HasComponent(component.Explosion) {
 			sprite := component.Animation.Get(entity).Frame()
@@ -241,6 +261,85 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
 		}
 	}
+}
+
+func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.Image, position *component.PositionData, healthBarWidth float64) {
+	tileWidth := float64(tile.Bounds().Dx())
+
+	x := position.X - healthBarWidth/2 + healthBarWidth/2 - tileWidth/2 - 18 // Center horizontally
+	y := position.Y - 30                                                     // Position above the health bar
+
+	// Apply camera offsets
+	x += self.camera.X
+	y += self.camera.Y
+
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Scale(4, 1.4)
+	opts.GeoM.Translate(x, y)
+
+	// Draw the tile on the screen
+	screen.DrawImage(tile, opts)
+}
+
+func (self *ArenaScene) drawHealthBar(screen *ebiten.Image, position *component.PositionData, health float64, maxHealth float64) {
+	healthBarWidth := 50.0
+	healthBarHeight := 3.8
+
+	// Calculate health percentage
+	healthPercentage := health / maxHealth
+
+	// Calculate world position for the health bar
+	barX := (position.X + self.camera.X - healthBarWidth/2) + 5 // Center horizontally
+	barY := position.Y + self.camera.Y - 26                     // Position above ship sprite with 26 offset
+
+	self.drawTransformedImage(screen, assets.Healthbar.GetTile(assets.TileIndex{X: 0, Y: 10}), position, healthBarWidth)
+
+	// Draw the health bar background
+	healthBarBackground := ebiten.NewImage(int(healthBarWidth), int(healthBarHeight))
+	healthBarBackground.Fill(color.RGBA{128, 128, 128, 255}) // Light Gray for the background
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Translate(barX, barY)
+	screen.DrawImage(healthBarBackground, opts)
+
+	// Draw the health bar foreground (current health)
+	currentHealthWidth := healthBarWidth * healthPercentage
+	healthBarForeground := ebiten.NewImage(int(currentHealthWidth), int(healthBarHeight))
+	healthBarForeground.Fill(color.RGBA{0, 255, 0, 255}) // Green for the current health
+	screen.DrawImage(healthBarForeground, opts)
+}
+
+func (self *ArenaScene) drawMessage(screen *ebiten.Image, image *ebiten.Image, scaleX, scaleY, rotate, translateX, translateY float64, colorScale [4]float32) {
+	opts := &ebiten.DrawImageOptions{}
+
+	// Apply geometric transformations
+	opts.GeoM.Scale(scaleX, scaleY)
+	opts.GeoM.Rotate(rotate) // Rotation in radians
+	opts.GeoM.Translate(translateX, translateY)
+
+	// Apply color transformations using ColorScale
+	if len(colorScale) == 4 { // Ensure proper length (R, G, B, A)
+		opts.ColorScale.Scale(colorScale[0], colorScale[1], colorScale[2], colorScale[3])
+	}
+
+	screen.DrawImage(image, opts)
+}
+
+// Helper function to draw centered text with specified font size
+func (self *ArenaScene) drawText(screen *ebiten.Image, msg string, fontface text.GoTextFace, fontSize float64, x, y float64, lineSpacing int, colorScale [4]float32) {
+	fontface.Size = fontSize
+	width, height := text.Measure(msg, &fontface, 10)
+
+	opts := &text.DrawOptions{}
+	opts.LineSpacing = float64(lineSpacing)
+	opts.GeoM.Translate(-width/2, -height/2)
+	opts.GeoM.Translate(x, y)
+
+	// Apply color transformations using ColorScale
+	if len(colorScale) == 4 { // Ensure proper length (R, G, B, A)
+		opts.ColorScale.Scale(colorScale[0], colorScale[1], colorScale[2], colorScale[3])
+	}
+
+	text.Draw(screen, msg, &fontface, opts)
 }
 
 func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
