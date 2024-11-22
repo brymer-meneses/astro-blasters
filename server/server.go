@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"sync"
 	"time"
@@ -48,6 +49,8 @@ func NewServer() *Server {
 func (self *Server) Start(port int) error {
 	fmt.Printf("Server started at %s:%d\n", getLocalIP(), port)
 
+	go self.updateState()
+
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), &self.serveMux)
 }
 
@@ -90,51 +93,76 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 		}
 
 		switch message.MessageType {
-		case "UpdatePosition":
-			var updatePosition messages.UpdatePosition
-			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
+		case "RegisterPlayerMove":
+			var registerPlayerMove messages.RegisterPlayerMove
+			if err := rpc.DecodeExpectedMessage(message, &registerPlayerMove); err != nil {
 				continue
 			}
-			self.handleUpdatePosition(&updatePosition)
-			self.broadcastMessage(playerId, message)
-		case "FireBullet":
-			var fireBullet messages.FireBullet
-			if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
-				continue
+			player := self.simulation.FindCorrespondingPlayer(playerId)
+			expectedPosition := component.Position.Get(player)
+
+			if !isPositionWithinTolerance(*expectedPosition, registerPlayerMove.Position, 3.0) {
+				self.broadcastMessage(rpc.NewBaseMessage(messages.UpdatePosition{
+					Position: *expectedPosition,
+					PlayerId: playerId,
+				}))
 			}
-			self.broadcastMessage(playerId, message)
+
+			self.simulation.RegisterPlayerMove(playerId, registerPlayerMove.Move)
+			self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerMove{
+				Move:     registerPlayerMove.Move,
+				PlayerId: playerId,
+			}))
 		}
 	}
 
 	return nil
 }
 
-func (self *Server) broadcastMessage(from types.PlayerId, message rpc.BaseMessage) {
-	sendMessage := func(playerId types.PlayerId, playerConn *playerConnection) {
-		// Lock the mutex to ensure only one goroutine writes at a time
-		playerConn.mutex.Lock()
-		defer playerConn.mutex.Unlock()
+func isPositionWithinTolerance(expected component.PositionData, got component.PositionData, tolerance float64) bool {
+	return math.Pow(expected.X-got.X, 2)+math.Pow(expected.Y-got.Y, 2)+math.Pow(expected.Angle-got.Angle, 2) <= math.Pow(tolerance, 2)
+}
 
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
+func (self *Server) updateState() {
+	for {
+		self.simulation.Update()
+		time.Sleep(time.Millisecond * 16)
+	}
+}
 
-		// Write the message to the connection
-		err := rpc.WriteMessage(ctx, playerConn.conn, message)
-		if err != nil {
-			log.Printf("Failed to send message to player %d: %v", playerId, err)
-		}
+func (self *Server) sendMessage(playerId types.PlayerId, playerConn *playerConnection, message rpc.BaseMessage) {
+	// Lock the mutex to ensure only one goroutine writes at a time
+	playerConn.mutex.Lock()
+	defer playerConn.mutex.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+
+	if !playerConn.isConnected {
+		return
 	}
 
+	// Write the message to the connection
+	err := rpc.WriteMessage(ctx, playerConn.conn, message)
+	if err != nil {
+		log.Printf("Failed to send message to player %d: %v", playerId, err)
+	}
+}
+
+func (self *Server) broadcastMessage(message rpc.BaseMessage) {
 	// For each playerid that does not match the sender, send the message.
 	for playerId, playerConn := range self.players {
-		if !playerConn.isConnected {
-			continue
-		}
+		go self.sendMessage(playerId, playerConn, message)
+	}
+}
 
-		if from == playerId {
+func (self *Server) broadcastMessageExcept(except types.PlayerId, message rpc.BaseMessage) {
+	// For each playerid that does not match the sender, send the message.
+	for playerId, playerConn := range self.players {
+		if except == playerId {
 			continue
 		}
-		go sendMessage(playerId, playerConn)
+		go self.sendMessage(playerId, playerConn, message)
 	}
 }
 
@@ -144,15 +172,6 @@ func (self *Server) getAvailablePlayerId() (types.PlayerId, error) {
 		return 0, errors.New("Cannot have more than 5 players")
 	}
 	return types.PlayerId(connectedPlayers), nil
-}
-
-func (self *Server) handleUpdatePosition(updatePosition *messages.UpdatePosition) {
-	player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId)
-	if player == nil {
-		log.Printf("Cannot find player %d", updatePosition.PlayerId)
-		return
-	}
-	donburi.SetValue(player, component.Position, updatePosition.Position)
 }
 
 func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (types.PlayerId, error) {
@@ -189,7 +208,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		log.Fatal(err)
 	}
 
-	self.broadcastMessage(playerId, rpc.NewBaseMessage(messages.PlayerConnected{
+	self.broadcastMessageExcept(playerId, rpc.NewBaseMessage(messages.EventPlayerConnected{
 		PlayerId: playerId,
 		Position: position,
 	}))
