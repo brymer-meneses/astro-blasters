@@ -39,7 +39,7 @@ func NewServer() *Server {
 	s.players = make(map[types.PlayerId]*playerConnection)
 
 	s.serveMux.HandleFunc("/play/ws", s.ws)
-	s.serveMux.HandleFunc("/", http.FileServer(http.Dir("server/static/")).ServeHTTP)
+	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
 	s.simulation = game.NewGameSimulation()
 	return s
@@ -162,8 +162,8 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	}
 
 	position := component.PositionData{
-		X:     0,
-		Y:     0,
+		X:     512,
+		Y:     512,
 		Angle: 0,
 	}
 

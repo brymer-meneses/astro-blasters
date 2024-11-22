@@ -25,18 +25,18 @@ func NewGameSimulation() *GameSimulation {
 }
 
 func (self *GameSimulation) Update() {
-	component.Expirable.Each(self.ECS.World, func(expirable *donburi.Entry) {
+	for expirable := range donburi.NewQuery(filter.Contains(component.Expirable)).Iter(self.ECS.World) {
 		expirableData := component.Expirable.GetValue(expirable)
 		if time.Now().After(expirableData.ExpiresWhen) {
 			self.ECS.World.Remove(expirable.Entity())
 		}
-	})
+	}
 
-	component.Bullet.Each(self.ECS.World, func(bullet *donburi.Entry) {
+	for bullet := range donburi.NewQuery(filter.Contains(component.Bullet)).Iter(self.ECS.World) {
 		futureBulletPosition := component.Position.GetValue(bullet)
 		futureBulletPosition.Forward(-10)
-
 		didCollide := false
+
 		component.Player.Each(self.ECS.World, func(player *donburi.Entry) {
 			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				playerData := component.Player.GetValue(player)
@@ -45,7 +45,7 @@ func (self *GameSimulation) Update() {
 				log.Printf("Player ID %d's health successfully updated to %.2f", playerData.Id, playerData.Health)
 				didCollide = true
 			}
-		})
+		}
 
 		if didCollide {
 			self.spawnExplosion(&futureBulletPosition)
@@ -53,7 +53,7 @@ func (self *GameSimulation) Update() {
 		} else {
 			component.Position.SetValue(bullet, futureBulletPosition)
 		}
-	})
+	}
 }
 
 func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {

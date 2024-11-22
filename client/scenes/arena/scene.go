@@ -22,20 +22,22 @@ import (
 )
 
 const (
-	MapWidth      = 4000
-	MapHeight     = 4000
+	MapWidth      = 4096
+	MapHeight     = 4096
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
 
 type ArenaScene struct {
-	connection *websocket.Conn
-	simulation *game.GameSimulation
-	background *common.Background
-	player     *donburi.Entry
-	playerId   types.PlayerId
-	camera     *Camera
-	lastFireTime time.Time
+	connection  *websocket.Conn
+	simulation  *game.GameSimulation
+	background1 *common.Background
+	background2 *common.Background
+  lastFireTime time.Time
+	player   *donburi.Entry
+	playerId types.PlayerId
+	camera   *Camera
+
 	isShaking      bool
 	shakeDuration  int
 	shakeIntensity float64
@@ -58,7 +60,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, config)
+	camera := NewCamera(0, 0, MapHeight, MapWidth, config)
 	simulation := game.NewGameSimulation()
 	var mainPlayer *donburi.Entry
 
@@ -74,13 +76,14 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background: common.NewBackground(MapWidth, MapHeight),
-		playerId:   message.PlayerId,
-		player:     mainPlayer,
-		simulation: simulation,
-		connection: connection,
-		camera:     camera,
-		isShaking:  false,
+		background1: common.NewBackground(MapWidth, MapHeight),
+		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:    message.PlayerId,
+		player:      mainPlayer,
+		simulation:  simulation,
+		connection:  connection,
+		camera:      camera,
+		isShaking:   false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -99,10 +102,11 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	self.drawBackground(screen)
 	self.drawEntities(screen)
 	self.drawMinimap(screen)
+
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
-    updatePosition := func(positionData *component.PositionData) {
+     updatePosition := func(positionData *component.PositionData) {
         message := rpc.NewBaseMessage(
             messages.UpdatePosition{
                 PlayerId: self.playerId,
@@ -112,40 +116,29 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
     }
 
     playerPosition := component.Position.Get(self.player)
-    if ebiten.IsKeyPressed(ebiten.KeyW) {
-        playerPosition.Forward(5)
-        updatePosition(playerPosition)
+    if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+      playerPosition.Forward(5)
+      updatePosition(playerPosition)
     }
-    if ebiten.IsKeyPressed(ebiten.KeyA) {
-        playerPosition.RotateClockwise(5)
-        updatePosition(playerPosition)
+    if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+      playerPosition.Rotate(-5)
+      updatePosition(playerPosition)
     }
-    if ebiten.IsKeyPressed(ebiten.KeyD) {
-        playerPosition.RotateCounterClockwise(5)
-        updatePosition(playerPosition)
+    if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+      playerPosition.Rotate(5)
     }
     if ebiten.IsKeyPressed(ebiten.KeySpace) {
-        // Get the current time
-        currentTime := time.Now()
-
-        // Check if the cooldown has elapsed (0.5 seconds)
-        if currentTime.Sub(self.lastFireTime) >= 350*time.Millisecond {
-            // Update the last fire time to the current time
-            self.lastFireTime = currentTime
-
-            // Fire the bullet and perform other actions
-            self.simulation.FireBullet(self.playerId)
-            self.startShake(15, 2)
-
-            message := rpc.NewBaseMessage(
-                messages.FireBullet{
-                    PlayerId: self.playerId,
-                })
-            rpc.WriteMessage(context.Background(), self.connection, message)
-        }
+      self.simulation.FireBullet(self.playerId)
+      self.startShake(15, 2)
+      message := rpc.NewBaseMessage(
+        messages.FireBullet{
+          PlayerId: self.playerId,
+        })
+      rpc.WriteMessage(context.Background(), self.connection, message)
     }
 
     self.camera.FocusTarget(*playerPosition)
+    self.camera.Constrain()
     self.simulation.Update()
 }
 
@@ -195,12 +188,17 @@ func (self *ArenaScene) startShake(duration int, intensity float64) {
 	self.shakeIntensity = intensity
 }
 
+// Draw the background.
 func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
-	// Draw the background.
 	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Translate(-MapWidth/2, -MapHeight/2)
+	opts.GeoM.Scale(2.0, 2.0)
+	opts.GeoM.Translate(0.2*self.camera.X, 0.2*self.camera.Y)
+	opts.ColorScale.Scale(1, 1, 1, 0.2)
+	screen.DrawImage(self.background2.Image, opts)
+
+	opts = &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(self.camera.X, self.camera.Y)
-	screen.DrawImage(self.background.Image, opts)
+	screen.DrawImage(self.background1.Image, opts)
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
