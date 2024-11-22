@@ -41,7 +41,7 @@ func (self *MenuScene) Draw(screen *ebiten.Image) {
 	opts.GeoM.Translate(centerX, centerY)
 	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 0}), opts)
 
-	fontface := text.GoTextFace{Source: assets.FontNarrow}
+	fontface := text.GoTextFace{Source: assets.MunroNarrow}
 	lineSpacing := 10
 
 	// Draw the title

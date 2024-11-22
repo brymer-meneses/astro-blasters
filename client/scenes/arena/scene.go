@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"math/rand/v2"
+	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
@@ -20,6 +21,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -41,28 +43,35 @@ type ArenaScene struct {
 	once   sync.Once            //testing only
 
 	lastFireTime time.Time
-	player       *donburi.Entry
-	playerId     types.PlayerId
 	camera       *Camera
 
 	shakeDuration  int
 	shakeIntensity float64
+
+	player   *donburi.Entry
+	playerId types.PlayerId
 }
 
-func NewArenaScene(config *config.ClientConfig) *ArenaScene {
+func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
+
 	if err != nil {
 		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
 	}
 
-	var message messages.EstablishConnection
-	if err := rpc.ReceiveExpectedMessage(ctx, connection, &message); err != nil {
+	connectionHandshake := rpc.NewBaseMessage(messages.ConnectionHandshake{PlayerName: playerName})
+	if err := rpc.WriteMessage(ctx, connection, connectionHandshake); err != nil {
+		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
+	}
+
+	var response messages.ConnectionHandshakeResponse
+	if err := rpc.ReceiveExpectedMessage(ctx, connection, &response); err != nil {
 		log.Fatal(err)
 	}
 
-	if message.IsRoomFull {
+	if response.IsRoomFull {
 		log.Fatal("Room is full")
 	}
 
@@ -70,21 +79,21 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 	simulation := game.NewGameSimulation()
 	var mainPlayer *donburi.Entry
 
-	for _, player := range message.PlayerData {
-		if player.PlayerId == message.PlayerId {
+	for _, player := range response.PlayerData {
+		if player.PlayerId == response.PlayerId {
 			// Focus the camera on the player.
-			mainPlayer = simulation.SpawnPlayer(player.PlayerId, &player.Position)
+			mainPlayer = simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 			camera.FocusTarget(player.Position)
 			continue
 		}
 
-		simulation.SpawnPlayer(player.PlayerId, &player.Position)
+		simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 	}
 
 	scene := &ArenaScene{
 		background1: common.NewBackground(MapWidth, MapHeight),
 		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:    message.PlayerId,
+		playerId:    response.PlayerId,
 		player:      mainPlayer,
 		simulation:  simulation,
 		connection:  connection,
@@ -200,9 +209,23 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 	for entity := range query.Iter(self.simulation.ECS.World) {
 		position := component.Position.Get(entity)
 
-		if entity.HasComponent(component.Bullet) {
-			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
-		} else if entity.HasComponent(component.Player) {
+		if entity.HasComponent(component.Player) {
+			player := component.Player.Get(entity)
+			sprite := component.Sprite.GetValue(entity)
+
+			font := text.GoTextFace{Source: assets.Munro, Size: 20}
+			width, height := text.Measure(player.Name, &font, 12)
+
+			dx := width/2 + float64(sprite.Bounds().Dx())
+			dy := height/2 + float64(sprite.Bounds().Dy())
+
+			opts := &text.DrawOptions{}
+			opts.GeoM.Translate(-dx, -dy)
+			opts.GeoM.Translate(position.X, position.Y-50)
+			opts.GeoM.Translate(self.camera.X+dx, self.camera.Y+dy)
+
+			text.Draw(screen, player.Name, &font, opts)
+
 			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
 		} else if entity.HasComponent(component.Explosion) {
 			sprite := component.Animation.Get(entity).Frame()
@@ -214,6 +237,8 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 				position.Y += 25 * rand.Float64()
 				drawSprite(&position, 4.0, sprite)
 			}
+		} else if entity.HasComponent(component.Bullet) {
+			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
 		}
 	}
 }
@@ -319,7 +344,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 				if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
 					continue
 				}
-				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position)
+				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
 			}
 		case "EventPlayerMove":
 			{
