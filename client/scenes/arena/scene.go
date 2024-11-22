@@ -33,7 +33,7 @@ type ArenaScene struct {
 	simulation  *game.GameSimulation
 	background1 *common.Background
 	background2 *common.Background
-
+  lastFireTime time.Time
 	player   *donburi.Entry
 	playerId types.PlayerId
 	camera   *Camera
@@ -106,41 +106,42 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
-	updatePosition := func(positionData *component.PositionData) {
-		message := rpc.NewBaseMessage(
-			messages.UpdatePosition{
-				PlayerId: self.playerId,
-				Position: *positionData,
-			})
-		rpc.WriteMessage(context.Background(), self.connection, message)
-	}
+     updatePosition := func(positionData *component.PositionData) {
+        message := rpc.NewBaseMessage(
+            messages.UpdatePosition{
+                PlayerId: self.playerId,
+                Position: *positionData,
+            })
+        rpc.WriteMessage(context.Background(), self.connection, message)
+    }
 
-	playerPosition := component.Position.Get(self.player)
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-		playerPosition.Forward(5)
-		updatePosition(playerPosition)
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-		playerPosition.Rotate(-5)
-		updatePosition(playerPosition)
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-		playerPosition.Rotate(5)
-	}
-	if ebiten.IsKeyPressed(ebiten.KeySpace) {
-		self.simulation.FireBullet(self.playerId)
-		self.startShake(15, 2)
-		message := rpc.NewBaseMessage(
-			messages.FireBullet{
-				PlayerId: self.playerId,
-			})
-		rpc.WriteMessage(context.Background(), self.connection, message)
-	}
+    playerPosition := component.Position.Get(self.player)
+    if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+      playerPosition.Forward(5)
+      updatePosition(playerPosition)
+    }
+    if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+      playerPosition.Rotate(-5)
+      updatePosition(playerPosition)
+    }
+    if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+      playerPosition.Rotate(5)
+    }
+    if ebiten.IsKeyPressed(ebiten.KeySpace) {
+      self.simulation.FireBullet(self.playerId)
+      self.startShake(15, 2)
+      message := rpc.NewBaseMessage(
+        messages.FireBullet{
+          PlayerId: self.playerId,
+        })
+      rpc.WriteMessage(context.Background(), self.connection, message)
+    }
 
-	self.camera.FocusTarget(*playerPosition)
-	self.camera.Constrain()
-	self.simulation.Update()
+    self.camera.FocusTarget(*playerPosition)
+    self.camera.Constrain()
+    self.simulation.Update()
 }
+
 
 // Receives information from the server and updates the game state accordingly.
 func (self *ArenaScene) receiveServerUpdates() {
