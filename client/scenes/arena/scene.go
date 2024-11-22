@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"log"
 	"math/rand/v2"
+	"os"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
@@ -17,6 +18,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
 )
@@ -29,21 +32,28 @@ const (
 )
 
 type ArenaScene struct {
-	connection  *websocket.Conn
-	simulation  *game.GameSimulation
-	background1 *common.Background
-	background2 *common.Background
-  lastFireTime time.Time
-	player   *donburi.Entry
-	playerId types.PlayerId
-	camera   *Camera
+	connection   *websocket.Conn
+	simulation   *game.GameSimulation
+	background1  *common.Background
+	background2  *common.Background
+	lastFireTime time.Time
+	player       *donburi.Entry
+	playerId     types.PlayerId
+	camera       *Camera
 
 	isShaking      bool
 	shakeDuration  int
 	shakeIntensity float64
+
+	audioContext     *audio.Context
+	laserPlayer      *audio.Player
+	backgroundPlayer *audio.Player
+	enterGamePlayer  *audio.Player
 }
 
 func NewArenaScene(config *config.ClientConfig) *ArenaScene {
+	audioContext := audio.NewContext(44100)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
@@ -74,16 +84,77 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 
 		simulation.SpawnPlayer(player.PlayerId, &player.Position)
 	}
+	// Open the laser file
+	file, err := os.Open("assets/sfx/laser.wav")
+	if err != nil {
+		log.Fatalf("Failed to open laser sound file: %v", err)
+	}
+
+	laserSound, err := wav.DecodeWithSampleRate(44100, file)
+	if err != nil {
+		log.Fatalf("Failed to decode laser sound: %v", err)
+	}
+	// Open the enter file
+	enterGameFile, err := os.Open("assets/sfx/start.wav")
+	if err != nil {
+		log.Fatalf("Failed to open enter game music file: %v", err)
+	}
+
+	enterGameMusic, err := wav.DecodeWithSampleRate(44100, enterGameFile)
+	if err != nil {
+		log.Fatalf("Failed to decode enter game music: %v", err)
+	}
+
+	enterGamePlayer, err := audio.NewPlayer(audioContext, enterGameMusic)
+	if err != nil {
+		log.Fatalf("Failed to create audio player for enter game music: %v", err)
+	}
+
+	enterGamePlayer.Play()
+	laserPlayer, err := audio.NewPlayer(audioContext, laserSound)
+	if err != nil {
+		log.Fatalf("Failed to create audio player: %v", err)
+	}
+	backgroundFile, err := os.Open("assets/sfx/background.wav")
+	if err != nil {
+		log.Fatalf("Failed to open background music file: %v", err)
+	}
+
+	// open the Background file
+	backgroundMusic, err := wav.DecodeWithSampleRate(44100, backgroundFile)
+	if err != nil {
+		log.Fatalf("Failed to decode background music: %v", err)
+	}
+
+	backgroundPlayer, err := audio.NewPlayer(audioContext, backgroundMusic)
+	if err != nil {
+		log.Fatalf("Failed to create audio player for background music: %v", err)
+	}
+	go func() {
+		time.Sleep(2 * time.Second)
+
+		for {
+			backgroundPlayer.Play()
+			for backgroundPlayer.IsPlaying() {
+				time.Sleep(100 * time.Millisecond)
+			}
+			backgroundPlayer.Rewind()
+		}
+	}()
 
 	scene := &ArenaScene{
-		background1: common.NewBackground(MapWidth, MapHeight),
-		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:    message.PlayerId,
-		player:      mainPlayer,
-		simulation:  simulation,
-		connection:  connection,
-		camera:      camera,
-		isShaking:   false,
+		background1:      common.NewBackground(MapWidth, MapHeight),
+		background2:      common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:         message.PlayerId,
+		player:           mainPlayer,
+		simulation:       simulation,
+		connection:       connection,
+		camera:           camera,
+		audioContext:     audioContext,
+		laserPlayer:      laserPlayer,
+		backgroundPlayer: backgroundPlayer,
+		enterGamePlayer:  enterGamePlayer,
+		isShaking:        false,
 	}
 
 	go scene.receiveServerUpdates()
@@ -106,42 +177,43 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
-     updatePosition := func(positionData *component.PositionData) {
-        message := rpc.NewBaseMessage(
-            messages.UpdatePosition{
-                PlayerId: self.playerId,
-                Position: *positionData,
-            })
-        rpc.WriteMessage(context.Background(), self.connection, message)
-    }
+	updatePosition := func(positionData *component.PositionData) {
+		message := rpc.NewBaseMessage(
+			messages.UpdatePosition{
+				PlayerId: self.playerId,
+				Position: *positionData,
+			})
+		rpc.WriteMessage(context.Background(), self.connection, message)
+	}
 
-    playerPosition := component.Position.Get(self.player)
-    if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
-      playerPosition.Forward(5)
-      updatePosition(playerPosition)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
-      playerPosition.Rotate(-5)
-      updatePosition(playerPosition)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
-      playerPosition.Rotate(5)
-    }
-    if ebiten.IsKeyPressed(ebiten.KeySpace) {
-      self.simulation.FireBullet(self.playerId)
-      self.startShake(15, 2)
-      message := rpc.NewBaseMessage(
-        messages.FireBullet{
-          PlayerId: self.playerId,
-        })
-      rpc.WriteMessage(context.Background(), self.connection, message)
-    }
+	playerPosition := component.Position.Get(self.player)
+	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp) {
+		playerPosition.Forward(5)
+		updatePosition(playerPosition)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowRight) {
+		playerPosition.Rotate(-5)
+		updatePosition(playerPosition)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft) {
+		playerPosition.Rotate(5)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		self.simulation.FireBullet(self.playerId)
+		self.startShake(15, 2)
+		self.laserPlayer.Rewind()
+		self.laserPlayer.Play()
+		message := rpc.NewBaseMessage(
+			messages.FireBullet{
+				PlayerId: self.playerId,
+			})
+		rpc.WriteMessage(context.Background(), self.connection, message)
+	}
 
-    self.camera.FocusTarget(*playerPosition)
-    self.camera.Constrain()
-    self.simulation.Update()
+	self.camera.FocusTarget(*playerPosition)
+	self.camera.Constrain()
+	self.simulation.Update()
 }
-
 
 // Receives information from the server and updates the game state accordingly.
 func (self *ArenaScene) receiveServerUpdates() {

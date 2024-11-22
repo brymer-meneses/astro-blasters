@@ -1,13 +1,14 @@
 package game
 
 import (
+	"log"
 	"math"
 	"math/rand"
 	"space-shooter/assets"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"time"
-	"log"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/ecs"
@@ -40,12 +41,12 @@ func (self *GameSimulation) Update() {
 		component.Player.Each(self.ECS.World, func(player *donburi.Entry) {
 			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				playerData := component.Player.GetValue(player)
-				playerData.Health -=5
+				playerData.Health -= 5
 				component.Player.SetValue(player, playerData)
 				log.Printf("Player ID %d's health successfully updated to %.2f", playerData.Id, playerData.Health)
 				didCollide = true
 			}
-		}
+		})
 
 		if didCollide {
 			self.spawnExplosion(&futureBulletPosition)
@@ -57,7 +58,7 @@ func (self *GameSimulation) Update() {
 }
 
 func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
-	
+
 	player := self.FindCorrespondingPlayer(playerId)
 	playerPosition := component.Position.Get(player)
 	playerPosition.Forward(-3)
@@ -88,7 +89,7 @@ func (self *GameSimulation) FireBullet(playerId types.PlayerId) *donburi.Entry {
 		bullet,
 		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
 	)
-	
+
 	return bullet
 }
 
@@ -100,8 +101,8 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 	component.Player.SetValue(
 		player,
 		component.PlayerData{
-			Name: "Player One",
-			Id:   playerId,
+			Name:   "Player One",
+			Id:     playerId,
 			Health: 100,
 		},
 	)
@@ -157,4 +158,3 @@ func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
 	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
 }
-
