@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+const (
+	PlayerDamagePerHit  = 0.1
+	PlayerMovementSpeed = 5
+	PlayerRotationSpeed = 5
+)
+
 type GameSimulation struct {
 	ECS *ecs.ECS
 }
@@ -39,6 +45,8 @@ func (self *GameSimulation) Update() {
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
 			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 10) {
+				playerData := component.Player.Get(player)
+				playerData.Health -= PlayerDamagePerHit
 				didCollide = true
 			}
 		}
@@ -60,15 +68,15 @@ func (self *GameSimulation) Update() {
 		}
 
 		if playerData.IsMovingForward {
-			position.Forward(5)
+			position.Forward(PlayerMovementSpeed)
 		}
 
 		if playerData.IsRotatingClockwise {
-			position.Rotate(-5)
+			position.Rotate(PlayerRotationSpeed)
 		}
 
 		if playerData.IsRotatingCounterClockwise {
-			position.Rotate(5)
+			position.Rotate(-PlayerRotationSpeed)
 		}
 	}
 }
