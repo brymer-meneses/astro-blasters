@@ -33,7 +33,7 @@ func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 	opts1 := &ebiten.DrawImageOptions{}
 	imageWidth := assets.Borders.Image.Bounds().Dx()
 	opts1.GeoM.Scale(25, 7)
-	opts1.GeoM.Translate(float64(self.config.ScreenWidth-imageWidth)/3, 50)
+	opts1.GeoM.Translate((float64(self.config.ScreenWidth-imageWidth)/3)+55, 50)
 	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), opts1)
 
 	fontface := text.GoTextFace{Source: assets.FontNarrow}
@@ -73,7 +73,7 @@ func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 
 	// Draw subtext
 	if self.visible {
-		self.drawText(screen, "Press P To Proceed", fontface, 40, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-100, lineSpacing)
+		self.drawText(screen, "Press P To Proceed", fontface, 40, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-110, lineSpacing)
 	}
 }
 

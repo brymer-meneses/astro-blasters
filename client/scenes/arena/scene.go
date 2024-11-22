@@ -8,11 +8,13 @@ import (
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
+	"space-shooter/client/scenes/leaderboard"
 	"space-shooter/game"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
+	"sync" //testing only
 	"time"
 
 	"github.com/coder/websocket"
@@ -35,6 +37,9 @@ type ArenaScene struct {
 	player     *donburi.Entry
 	playerId   types.PlayerId
 	camera     *Camera
+
+	config *config.ClientConfig //testing only
+	once   sync.Once            //testing only
 
 	isShaking      bool
 	shakeDuration  int
@@ -80,6 +85,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		simulation: simulation,
 		connection: connection,
 		camera:     camera,
+		config:     config,
 		isShaking:  false,
 	}
 
@@ -102,6 +108,14 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
+	// for testing only
+	if ebiten.IsKeyPressed(ebiten.KeyL) {
+		self.once.Do(
+			func() {
+				dispatcher.Dispatch(leaderboard.NewLeaderboardScene(self.config))
+			})
+	}
+
 	updatePosition := func(positionData *component.PositionData) {
 		message := rpc.NewBaseMessage(
 			messages.UpdatePosition{
