@@ -8,11 +8,13 @@ import (
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
+	"space-shooter/client/scenes/leaderboard"
 	"space-shooter/game"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
+	"sync"
 	"time"
 
 	"github.com/coder/websocket"
@@ -30,10 +32,14 @@ const (
 )
 
 type ArenaScene struct {
-	connection   *websocket.Conn
-	simulation   *game.GameSimulation
-	background1  *common.Background
-	background2  *common.Background
+	connection  *websocket.Conn
+	simulation  *game.GameSimulation
+	background1 *common.Background
+	background2 *common.Background
+
+	config *config.ClientConfig //testing only
+	once   sync.Once            //testing only
+
 	lastFireTime time.Time
 	player       *donburi.Entry
 	playerId     types.PlayerId
@@ -83,6 +89,7 @@ func NewArenaScene(config *config.ClientConfig) *ArenaScene {
 		simulation:  simulation,
 		connection:  connection,
 		camera:      camera,
+		config:      config,
 	}
 
 	go scene.receiveServerUpdates()
@@ -138,6 +145,14 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	}
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
+	}
+
+	// for testing only
+	if ebiten.IsKeyPressed(ebiten.KeyL) {
+		self.once.Do(
+			func() {
+				dispatcher.Dispatch(leaderboard.NewLeaderboardScene(self.config))
+			})
 	}
 
 	self.simulation.Update()
