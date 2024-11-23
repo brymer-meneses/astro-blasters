@@ -2,10 +2,12 @@ package arena
 
 import (
 	"context"
+	"fmt"
 	"image/color"
 	"log"
 	"math"
 	"math/rand/v2"
+	"os"
 	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
@@ -30,7 +32,9 @@ import (
 )
 
 type ArenaScene struct {
-	connection  *websocket.Conn
+	connection   *websocket.Conn
+	errorMessage string
+
 	simulation  *game.GameSimulation
 	background1 *common.Background
 	background2 *common.Background
@@ -46,6 +50,9 @@ type ArenaScene struct {
 
 	player   *donburi.Entry
 	playerId types.PlayerId
+
+	visible bool
+	ticker  *time.Ticker
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
@@ -53,22 +60,27 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
 
+	scene := &ArenaScene{errorMessage: ""}
 	if err != nil {
-		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
+		scene.errorMessage = fmt.Sprintf("Failed to connect to the server at %s", config.ServerWebsocketURL)
+		return scene
 	}
 
 	connectionHandshake := rpc.NewBaseMessage(messages.ConnectionHandshake{PlayerName: playerName})
 	if err := rpc.WriteMessage(ctx, connection, connectionHandshake); err != nil {
-		log.Fatalf("Failed to connect to the game server at %s\n", config.ServerWebsocketURL)
+		scene.errorMessage = fmt.Sprintf("Failed to send handshake to the server at %s", config.ServerWebsocketURL)
+		return scene
 	}
 
 	var response messages.ConnectionHandshakeResponse
 	if err := rpc.ReceiveExpectedMessage(ctx, connection, &response); err != nil {
-		log.Fatal(err)
+		scene.errorMessage = "Error receiving handshake response: " + err.Error()
+		return scene
 	}
 
 	if response.IsRoomFull {
-		log.Fatal("Room is full")
+		scene.errorMessage = "Room is full"
+		return scene
 	}
 
 	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
@@ -87,15 +99,18 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 	}
 
-	scene := &ArenaScene{
-		background1: common.NewBackground(game.MapWidth, game.MapHeight),
-		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:    response.PlayerId,
-		player:      mainPlayer,
-		simulation:  simulation,
-		connection:  connection,
-		camera:      camera,
-		config:      config,
+	scene = &ArenaScene{
+		background1:  common.NewBackground(game.MapWidth, game.MapHeight),
+		background2:  common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:     response.PlayerId,
+		player:       mainPlayer,
+		simulation:   simulation,
+		connection:   connection,
+		camera:       camera,
+		config:       config,
+		errorMessage: "",
+		visible:      true,
+		ticker:       time.NewTicker(500 * time.Millisecond),
 	}
 
 	go scene.receiveServerUpdates()
@@ -109,6 +124,27 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 		self.camera.X += (rand.Float64()*2 - 1) * self.shakeIntensity
 		self.camera.Y += (rand.Float64()*2 - 1) * self.shakeIntensity
 		self.shakeDuration -= 1
+	}
+
+	if self.errorMessage != "" {
+		font := text.GoTextFace{Source: assets.Munro, Size: 20}
+
+		opts1 := &ebiten.DrawImageOptions{}
+		opts1.GeoM.Scale(60, 10)
+		opts1.GeoM.Translate(60, 200)
+
+		screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 3}), opts1)
+		screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), opts1)
+
+		// testing how the text apears
+		// self.drawText(screen, "Room is Full", font, 30, float64(self.config.ScreenWidth)/2, 275, 10, [4]float32{255, 255, 255, 255})
+
+		self.drawText(screen, self.errorMessage, font, 30, float64(self.config.ScreenWidth)/2, 275, 10, [4]float32{255, 255, 255, 255})
+
+		if self.visible {
+			self.drawText(screen, "Press C To Close the Game", font, 30, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-300, 10, [4]float32{255, 255, 255, 255})
+		}
+		return
 	}
 
 	self.drawBackground(screen)
@@ -180,6 +216,20 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 		self.once.Do(
 			func() {
 				controller.ChangeScene(leaderboard.NewLeaderboardScene(self.config))
+			})
+	}
+
+	// Toggle visibility every tick
+	select {
+	case <-self.ticker.C:
+		self.visible = !self.visible
+	default:
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyC) {
+		self.once.Do(
+			func() {
+				os.Exit(0)
 			})
 	}
 
@@ -311,7 +361,6 @@ func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.
 	x := position.X - healthBarWidth/2 + healthBarWidth/2 - tileWidth/2 - 18 // Center horizontally
 	y := position.Y - 30                                                     // Position above the health bar
 
-	// Apply camera offsets
 	x += self.camera.X
 	y += self.camera.Y
 
@@ -319,7 +368,6 @@ func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.
 	opts.GeoM.Scale(4, 1.4)
 	opts.GeoM.Translate(x, y)
 
-	// Draw the tile on the screen
 	screen.DrawImage(tile, opts)
 }
 
@@ -380,7 +428,7 @@ func (self *ArenaScene) drawText(screen *ebiten.Image, msg string, fontface text
 	opts.GeoM.Translate(x, y)
 
 	// Apply color transformations using ColorScale
-	if len(colorScale) == 4 { // Ensure proper length (R, G, B, A)
+	if len(colorScale) == 4 {
 		opts.ColorScale.Scale(colorScale[0], colorScale[1], colorScale[2], colorScale[3])
 	}
 
