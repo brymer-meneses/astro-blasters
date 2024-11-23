@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
@@ -37,18 +38,20 @@ var BattleMusic []byte
 var IntroMusic []byte
 
 func init() {
-	Background = mustLoadSpriteFromBytes(background, 512, 512)
-	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
-	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
-	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
-	Spacebar = mustLoadSpriteFromBytes(iu, 8, 4)
-	Healthbar = mustLoadSpriteFromBytes(iu, 16, 8)
-	Messagebar = mustLoadSpriteFromBytes(projectile, 24, 8)
+	iu := mustLoadImageFromBytes(iu)
+	Background = NewSprite(mustLoadImageFromBytes(background), 512, 512)
+	Ships = NewSprite(mustLoadImageFromBytes(ships), 8, 8)
+
+	Borders = NewSprite(iu, 16, 16)
+	Arrows = NewSprite(iu, 8, 8)
+	Spacebar = NewSprite(iu, 8, 4)
+	Healthbar = NewSprite(iu, 16, 8)
+	Messagebar = NewSprite(mustLoadImageFromBytes(projectile), 24, 8)
 
 	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
 	Munro = mustLoadFontFromBytes(munro)
 
-	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
+	miscSprite := NewSprite(mustLoadImageFromBytes(miscellaneous), 8, 8)
 
 	for i := range 4 {
 		OrangeBulletAnimation[i] = NewSpriteSheet(
@@ -97,12 +100,12 @@ var iu []byte
 //go:embed SpaceShooterAssetPack/Projectiles.png
 var projectile []byte
 
-func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
+func mustLoadImageFromBytes(data []byte) *ebiten.Image {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
 		panic(err)
 	}
-	return Sprite{image, width, height}
+	return image
 }
 
 func mustLoadFontFromBytes(data []byte) *text.GoTextFaceSource {
