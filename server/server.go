@@ -50,6 +50,14 @@ func NewServer() *Server {
 				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
 					PlayerId: player.Id,
 				}))
+				player.Health = 100
+				component.Position.SetValue(entity, component.PositionData{X: 512, Y: 512, Angle: 0})
+				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
+					PlayerId: player.Id,
+					Health:   100,
+					Position: component.PositionData{X: 512, Y: 512, Angle: 0},
+				}))
+				log.Print("test")
 			}
 			s.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
 				PlayerId: player.Id,

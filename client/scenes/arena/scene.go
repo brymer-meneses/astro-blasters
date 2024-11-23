@@ -516,7 +516,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 				continue
 			}
 			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
-			log.Print(updateHealth.Health)
+			log.Print(updateHealth)
 		case "EventPlayerDied":
 			var playerDied messages.EventPlayerDied
 			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
@@ -525,6 +525,12 @@ func (self *ArenaScene) receiveServerUpdates() {
 			if playerDied.PlayerId == self.playerId {
 				log.Printf("You died")
 			}
+		case "EventPlayerRespawned":
+			var playerRespawn messages.EventPlayerRespawned
+			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
+				continue
+			}
+			self.simulation.RespawnPlayer(playerRespawn.PlayerId, &playerRespawn.Position)
 		default:
 	}
 }
