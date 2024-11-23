@@ -30,13 +30,6 @@ import (
 	"github.com/yohamta/donburi/filter"
 )
 
-const (
-	MapWidth      = 4096
-	MapHeight     = 4096
-	MinimapWidth  = 150
-	MinimapHeight = 150
-)
-
 type ArenaScene struct {
 	connection  *websocket.Conn
 	simulation  *game.GameSimulation
@@ -83,7 +76,7 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, MapHeight, MapWidth, config)
+	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
 	simulation := game.NewGameSimulation()
 	var mainPlayer *donburi.Entry
 
@@ -99,7 +92,7 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background1: common.NewBackground(MapWidth, MapHeight),
+		background1: common.NewBackground(game.MapWidth, game.MapHeight),
 		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
 		playerId:    response.PlayerId,
 		player:      mainPlayer,
