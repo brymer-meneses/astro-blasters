@@ -18,6 +18,11 @@ const (
 	PlayerDamagePerHit  = 5
 	PlayerMovementSpeed = 5
 	PlayerRotationSpeed = 5
+	MapWidth            = 4096
+	MapHeight           = 4096
+
+	ShipWidth  = 32
+	ShipHeight = 32
 )
 
 type GameSimulation struct {
@@ -68,23 +73,32 @@ func (self *GameSimulation) Update() {
 
 	for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
 		playerData := component.Player.Get(player)
-		position := component.Position.Get(player)
 
 		if playerData.IsFiringBullet {
 			self.fireBullet(player)
 		}
 
+		futurePosition := component.Position.GetValue(player)
 		if playerData.IsMovingForward {
-			position.Forward(PlayerMovementSpeed)
+			futurePosition.Forward(PlayerMovementSpeed)
 		}
 
 		if playerData.IsRotatingClockwise {
-			position.Rotate(PlayerRotationSpeed)
+			futurePosition.Rotate(PlayerRotationSpeed)
 		}
 
 		if playerData.IsRotatingCounterClockwise {
-			position.Rotate(-PlayerRotationSpeed)
+			futurePosition.Rotate(-PlayerRotationSpeed)
 		}
+
+		if futurePosition.X < ShipWidth || futurePosition.X > MapWidth-ShipWidth {
+			continue
+		}
+		if futurePosition.Y < ShipHeight || futurePosition.Y > MapHeight-ShipHeight {
+			continue
+		}
+
+		component.Position.SetValue(player, futurePosition)
 	}
 }
 
