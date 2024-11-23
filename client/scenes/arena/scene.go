@@ -1,6 +1,7 @@
 package arena
 
 import (
+	"bytes"
 	"context"
 	"image/color"
 	"log"
@@ -20,6 +21,8 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
@@ -32,6 +35,41 @@ const (
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
+
+func createAudioPlayerFromData(audioContext *audio.Context, data []byte) *audio.Player {
+	decodedAudio, err := wav.DecodeWithSampleRate(44100, bytes.NewReader(data))
+	if err != nil {
+		log.Fatalf("Failed to decode audio: %v", err)
+	}
+
+	player, err := audio.NewPlayer(audioContext, decodedAudio)
+	if err != nil {
+		log.Fatalf("Failed to create audio player: %v", err)
+	}
+
+	return player
+}
+
+func setupAudio(audioContext *audio.Context) (*audio.Player, *audio.Player, *audio.Player) {
+	laserPlayer := createAudioPlayerFromData(audioContext, assets.LaserAudio)
+	enterGamePlayer := createAudioPlayerFromData(audioContext, assets.StartAudio)
+	backgroundPlayer := createAudioPlayerFromData(audioContext, assets.BackgroundAudio)
+
+	enterGamePlayer.Play()
+
+	go func() {
+		time.Sleep(2 * time.Second)
+		for {
+			backgroundPlayer.Play()
+			for backgroundPlayer.IsPlaying() {
+				time.Sleep(100 * time.Millisecond)
+			}
+			backgroundPlayer.Rewind()
+		}
+	}()
+
+	return laserPlayer, enterGamePlayer, backgroundPlayer
+}
 
 type ArenaScene struct {
 	connection  *websocket.Conn
@@ -48,11 +86,18 @@ type ArenaScene struct {
 	shakeDuration  int
 	shakeIntensity float64
 
-	player   *donburi.Entry
-	playerId types.PlayerId
+	player           *donburi.Entry
+	playerId         types.PlayerId
+	audioContext     *audio.Context
+	laserPlayer      *audio.Player
+	backgroundPlayer *audio.Player
+	enterGamePlayer  *audio.Player
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
+	audioContext := audio.NewContext(44100)
+	laserPlayer, enterGamePlayer, backgroundPlayer := setupAudio(audioContext)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
@@ -91,14 +136,18 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background1: common.NewBackground(MapWidth, MapHeight),
-		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:    response.PlayerId,
-		player:      mainPlayer,
-		simulation:  simulation,
-		connection:  connection,
-		camera:      camera,
-		config:      config,
+		background1:      common.NewBackground(MapWidth, MapHeight),
+		background2:      common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:         response.PlayerId,
+		player:           mainPlayer,
+		simulation:       simulation,
+		connection:       connection,
+		camera:           camera,
+		config:           config,
+		audioContext:     audioContext,
+		laserPlayer:      laserPlayer,
+		backgroundPlayer: backgroundPlayer,
+		enterGamePlayer:  enterGamePlayer,
 	}
 
 	go scene.receiveServerUpdates()
@@ -165,8 +214,10 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		sendMove(types.PlayerStartFireBullet)
+		self.laserPlayer.Rewind()
+		self.laserPlayer.Play()
 	}
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
