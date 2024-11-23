@@ -57,3 +57,18 @@ type EventPlayerConnected struct {
 type EventPlayerDisconnected struct {
 	PlayerId types.PlayerId
 }
+
+type EventUpdateHealth struct {
+	PlayerId types.PlayerId // The player whose health is being updated
+	Health   float64             // The updated health value of the player
+}
+
+type EventPlayerDied struct {
+	PlayerId types.PlayerId // The player whose health is being updated
+}
+
+type EventPlayerRespawned struct {
+	PlayerId   types.PlayerId
+	Health     float64  
+	Position   component.PositionData
+}

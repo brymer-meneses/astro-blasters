@@ -15,19 +15,27 @@ import (
 )
 
 const (
-	PlayerDamagePerHit  = 0.1
+	PlayerDamagePerHit  = 5
 	PlayerMovementSpeed = 5
 	PlayerRotationSpeed = 5
 )
 
 type GameSimulation struct {
 	ECS *ecs.ECS
+	OnCollide func(player *donburi.Entry)
 }
 
-func NewGameSimulation() *GameSimulation {
+func NewGameSimulation(onCollide func(player *donburi.Entry)) *GameSimulation {
 	return &GameSimulation{
 		ECS: ecs.NewECS(donburi.NewWorld()),
+		OnCollide: onCollide,
 	}
+}
+
+func (self *GameSimulation) UpdatePlayerHealth(playerId types.PlayerId, health float64) {
+	player := self.FindCorrespondingPlayer(playerId)
+	playerData := component.Player.Get(player)
+	playerData.Health = health
 }
 
 func (self *GameSimulation) Update() {
@@ -44,10 +52,9 @@ func (self *GameSimulation) Update() {
 		didCollide := false
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
-			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 10) {
-				playerData := component.Player.Get(player)
-				playerData.Health -= PlayerDamagePerHit
+			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				didCollide = true
+				self.OnCollide(player)
 			}
 		}
 

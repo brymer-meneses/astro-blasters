@@ -42,7 +42,21 @@ func NewServer() *Server {
 	s.serveMux.HandleFunc("/play/ws", s.ws)
 	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
-	s.simulation = game.NewGameSimulation()
+	s.simulation = game.NewGameSimulation(
+		func(entity *donburi.Entry) {
+			player := component.Player.Get(entity) 
+			player.Health -= game.PlayerDamagePerHit
+			if player.Health <= 0 {
+				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
+					PlayerId: player.Id,
+				}))
+			}
+			s.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
+				PlayerId: player.Id,
+				Health: player.Health,
+			}))
+		},
+	)
 	return s
 }
 
@@ -113,9 +127,9 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 				Move:     registerPlayerMove.Move,
 				PlayerId: playerId,
 			}))
+
 		}
 	}
-
 	return nil
 }
 
@@ -260,3 +274,4 @@ func getLocalIP() string {
 
 	return ""
 }
+
