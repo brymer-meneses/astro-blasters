@@ -23,7 +23,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
@@ -45,12 +44,8 @@ type ArenaScene struct {
 	shakeDuration  int
 	shakeIntensity float64
 
-	player           *donburi.Entry
-	playerId         types.PlayerId
-	audioContext     *audio.Context
-	laserPlayer      *audio.Player
-	backgroundPlayer *audio.Player
-	enterGamePlayer  *audio.Player
+	player   *donburi.Entry
+	playerId types.PlayerId
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
@@ -76,8 +71,10 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, MapHeight, MapWidth, config)
-	simulation := game.NewGameSimulation(func(player *donburi.Entry){})
+
+	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
+	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
+
 	var mainPlayer *donburi.Entry
 
 	for _, player := range response.PlayerData {
@@ -177,6 +174,15 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 			sendMove(types.PlayerStopFireBullet)
 		}
 
+
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		now := time.Now()
+		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 300*time.Millisecond {
+			sendMove(types.PlayerStartFireBullet)
+			self.lastFireTime = now
+		} else {
+			sendMove(types.PlayerStopFireBullet)
+		}
 	}
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
@@ -216,15 +222,18 @@ func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
-	drawSprite := func(position *component.PositionData, scale float64, sprite *ebiten.Image) {
+	drawSprite := func(position *component.PositionData, scale float64, angleOffset float64, offset dmath.Vec2, sprite *ebiten.Image) {
 		// Center the texture.
 		x0 := float64(sprite.Bounds().Dx()) / 2
 		y0 := float64(sprite.Bounds().Dy()) / 2
 
 		opts := &ebiten.DrawImageOptions{}
 		opts.GeoM.Translate(-x0, -y0)
+		opts.GeoM.Translate(offset.X, offset.Y)
 
 		opts.GeoM.Rotate(position.Angle)
+		opts.GeoM.Rotate(angleOffset)
+
 		opts.GeoM.Scale(scale, scale)
 		opts.GeoM.Translate(position.X, position.Y)
 		opts.GeoM.Translate(self.camera.X+x0, self.camera.Y+y0)
@@ -255,12 +264,18 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			self.drawHealthBar(screen, position, player.Health, 100)
 
 			// Draw the player ship
-			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
+			drawSprite(position, 4.0, 0, dmath.NewVec2(0, 0), component.Sprite.GetValue(entity))
 
 			if player.Id != self.playerId {
 				enemyPosition := component.Position.Get(entity)
 				self.drawPointingArrow(screen, enemyPosition)
 			}
+
+			if player.IsMovingForward {
+				exhaust := component.Animation.Get(entity).Frame()
+				drawSprite(position, 4.0, 0, dmath.NewVec2(0, 8), exhaust)
+			}
+
 		} else if entity.HasComponent(component.Explosion) {
 			sprite := component.Animation.Get(entity).Frame()
 			position := component.Position.GetValue(entity)
@@ -269,10 +284,10 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			for i := 0; i < explosion.Count; i++ {
 				position.X += 25 * rand.Float64()
 				position.Y += 25 * rand.Float64()
-				drawSprite(&position, 4.0, sprite)
+				drawSprite(&position, 4.0, 0, dmath.NewVec2(0, 0), sprite)
 			}
 		} else if entity.HasComponent(component.Bullet) {
-			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
+			drawSprite(position, 4.0, -math.Pi/4, dmath.NewVec2(0, 0), component.Sprite.GetValue(entity))
 		}
 	}
 }
@@ -395,6 +410,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 		switch message.MessageType {
 		case "UpdatePosition":
+
 				var updatePosition messages.UpdatePosition
 				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
 					continue
@@ -420,7 +436,6 @@ func (self *ArenaScene) receiveServerUpdates() {
 				continue
 			}
 			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
-			log.Print(updateHealth)
 		case "EventPlayerDied":
 			var playerDied messages.EventPlayerDied
 			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
@@ -429,6 +444,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 			if playerDied.PlayerId == self.playerId {
 				log.Printf("You died")
 			}
+			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
 		case "EventPlayerRespawned":
 			var playerRespawn messages.EventPlayerRespawned
 			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {

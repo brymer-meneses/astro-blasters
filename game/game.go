@@ -145,7 +145,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	bulletPosition.Angle += math.Pi
 	bulletPosition.Forward(-40)
 
-	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position, component.Expirable)
+	entity := self.ECS.World.Create(component.Bullet, component.Sprite, component.Position, component.Expirable)
 	bullet := self.ECS.World.Entry(entity)
 
 	component.Bullet.SetValue(
@@ -162,10 +162,9 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 		bullet,
 		component.NewExpirable(time.Second),
 	)
-	animationIndex := rand.Intn(len(assets.OrangeBulletAnimation))
-	component.Animation.SetValue(
+	component.Sprite.SetValue(
 		bullet,
-		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
+		assets.Bullet,
 	)
 
 	return bullet
