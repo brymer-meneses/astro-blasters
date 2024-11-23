@@ -116,7 +116,7 @@ func (self *StarterScene) Update(controller *scenes.AppController) {
 	// Only handle input if the input box is focused
 	if self.isFocused {
 		// Update cursor blink timer
-		self.cursorTimer += time.Second / time.Duration(ebiten.ActualTPS()) // Use ActualTPS
+		self.cursorTimer += time.Second / 60
 		if self.cursorTimer > time.Second/2 {
 			self.cursorVisible = !self.cursorVisible
 			self.cursorTimer = 0

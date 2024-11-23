@@ -17,6 +17,8 @@ var Spacebar Sprite
 var Healthbar Sprite
 var Messagebar Sprite
 
+var Miscellaneous Sprite
+
 var Munro *text.GoTextFaceSource
 var MunroNarrow *text.GoTextFaceSource
 
@@ -51,18 +53,18 @@ func init() {
 	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
 	Munro = mustLoadFontFromBytes(munro)
 
-	miscSprite := NewSprite(mustLoadImageFromBytes(miscellaneous), 8, 8)
+	Miscellaneous := NewSprite(mustLoadImageFromBytes(miscellaneous), 8, 8)
 
 	for i := range 4 {
 		OrangeBulletAnimation[i] = NewSpriteSheet(
-			miscSprite,
+			Miscellaneous,
 			TileIndex{5 + i, 0},
 			TileIndex{5 + i, 1},
 			TileIndex{5 + i, 2},
 			TileIndex{5 + i, 3},
 		)
 		GreenBulletAnimation[i] = NewSpriteSheet(
-			miscSprite,
+			Miscellaneous,
 			TileIndex{9 + i, 0},
 			TileIndex{9 + i, 1},
 			TileIndex{9 + i, 2},
@@ -71,7 +73,7 @@ func init() {
 	}
 
 	BlueExplosion = NewSpriteSheet(
-		miscSprite,
+		Miscellaneous,
 		TileIndex{12, 6},
 		TileIndex{11, 6},
 		TileIndex{10, 6},

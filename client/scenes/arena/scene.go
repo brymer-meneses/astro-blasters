@@ -4,6 +4,7 @@ import (
 	"context"
 	"image/color"
 	"log"
+	"math"
 	"math/rand/v2"
 	"space-shooter/assets"
 	"space-shooter/client/config"
@@ -17,6 +18,8 @@ import (
 	"space-shooter/server/messages"
 	"sync"
 	"time"
+
+	dmath "github.com/yohamta/donburi/features/math"
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -235,22 +238,25 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			font := text.GoTextFace{Source: assets.Munro, Size: 20}
 			width, _ := text.Measure(player.Name, &font, 12)
 
-			// Calculate the position of the text to center it above the health bar
-			x := (position.X - width/2) + 6 // Center horizontally
-			y := position.Y - 55            // Above the health bar
+			x := (position.X - width/2) + 6
+			y := position.Y - 55
 
-			// Apply camera translation
 			x += self.camera.X
 			y += self.camera.Y
 
-			// Set up the text drawing options
 			opts := &text.DrawOptions{}
 			opts.GeoM.Translate(x, y)
 
 			text.Draw(screen, player.Name, &font, opts)
-
 			self.drawHealthBar(screen, position, player.Health, 100)
+
+			// Draw the player ship
 			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
+
+			if player.Id != self.playerId {
+				enemyPosition := component.Position.Get(entity)
+				self.drawPointingArrow(screen, enemyPosition)
+			}
 		} else if entity.HasComponent(component.Explosion) {
 			sprite := component.Animation.Get(entity).Frame()
 			position := component.Position.GetValue(entity)
@@ -265,6 +271,32 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
 		}
 	}
+}
+
+func (self *ArenaScene) drawPointingArrow(screen *ebiten.Image, enemyPosition *component.PositionData) {
+	ourPosition := component.Position.Get(self.player)
+	arrow := assets.Arrows.GetTile(assets.TileIndex{X: 9, Y: 12})
+
+	vec := dmath.NewVec2(enemyPosition.X-ourPosition.X, enemyPosition.Y-ourPosition.Y)
+	// do not draw the arrows if they are within the vicinity of the player
+	if vec.Magnitude() < 500 {
+		return
+	}
+
+	normalizedVec := vec.Normalized().MulScalar(100)
+	angle := vec.Angle(dmath.NewVec2(1, 0))
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-float64(arrow.Bounds().Dx()), -float64(arrow.Bounds().Dy()))
+	// The image is rotated by 90 degrees, undo that rotation.
+	op.GeoM.Rotate(-math.Pi / 2)
+	op.GeoM.Rotate(angle)
+	op.GeoM.Scale(2, 2)
+	op.GeoM.Translate(ourPosition.X, ourPosition.Y)
+	op.GeoM.Translate(normalizedVec.X, normalizedVec.Y)
+	op.GeoM.Translate(self.camera.X, self.camera.Y)
+
+	screen.DrawImage(arrow, op)
 }
 
 func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.Image, position *component.PositionData, healthBarWidth float64) {
