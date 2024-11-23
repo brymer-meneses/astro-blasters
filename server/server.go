@@ -44,7 +44,7 @@ func NewServer() *Server {
 
 	s.simulation = game.NewGameSimulation(
 		func(entity *donburi.Entry) {
-			player := component.Player.Get(entity) 
+			player := component.Player.Get(entity)
 			player.Health -= game.PlayerDamagePerHit
 			if player.Health <= 0 {
 				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
@@ -57,11 +57,10 @@ func NewServer() *Server {
 					Health:   100,
 					Position: component.PositionData{X: 512, Y: 512, Angle: 0},
 				}))
-				log.Print("test")
 			}
 			s.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
 				PlayerId: player.Id,
-				Health: player.Health,
+				Health:   player.Health,
 			}))
 		},
 	)
@@ -282,4 +281,3 @@ func getLocalIP() string {
 
 	return ""
 }
-

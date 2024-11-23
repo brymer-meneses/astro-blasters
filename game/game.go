@@ -26,16 +26,14 @@ const (
 )
 
 type GameSimulation struct {
-	ECS *ecs.ECS
+	ECS       *ecs.ECS
 	OnCollide func(player *donburi.Entry)
-	PlayerMetadata map[types.PlayerId]*component.PlayerData
 }
 
 func NewGameSimulation(onCollide func(player *donburi.Entry)) *GameSimulation {
 	return &GameSimulation{
-		ECS: ecs.NewECS(donburi.NewWorld()),
+		ECS:       ecs.NewECS(donburi.NewWorld()),
 		OnCollide: onCollide,
-		PlayerMetadata: make(map[types.PlayerId]*component.PlayerData),
 	}
 }
 
@@ -68,7 +66,6 @@ func (self *GameSimulation) Update() {
 		if didCollide {
 			self.spawnExplosion(&futureBulletPosition)
 			self.ECS.World.Remove(bullet.Entity())
-			log.Print("collided")
 		} else {
 			component.Position.SetValue(bullet, futureBulletPosition)
 		}
@@ -171,51 +168,48 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 }
 
 func (self *GameSimulation) RespawnPlayer(playerId types.PlayerId, newPosition *component.PositionData) *donburi.Entry {
-    // Find the existing player entity
-    player := self.FindCorrespondingPlayer(playerId)
-    if player == nil {
-        log.Printf("Error: Player with ID %d not found, cannot respawn", playerId)
-        return nil
-    }
+	// Find the existing player entity
+	player := self.FindCorrespondingPlayer(playerId)
+	if player == nil {
+		log.Printf("Error: Player with ID %d not found, cannot respawn", playerId)
+		return nil
+	}
 
-    // Reset health
-    playerData := component.Player.Get(player)
-    playerData.Health = 100 // Reset health to full
-    component.Player.SetValue(player, *playerData)
+	// Reset health
+	playerData := component.Player.Get(player)
+	playerData.Health = 100 // Reset health to full
+	component.Player.SetValue(player, *playerData)
 
-    // Update position
-    if newPosition != nil {
-        component.Position.SetValue(player, *newPosition)
-    } else {
-        // Use a default spawn position if none is provided
-        defaultPosition := component.PositionData{X: 512, Y: 512, Angle: 0}
-        component.Position.SetValue(player, defaultPosition)
-    }
+	// Update position
+	if newPosition != nil {
+		component.Position.SetValue(player, *newPosition)
+	} else {
+		// Use a default spawn position if none is provided
+		defaultPosition := component.PositionData{X: 512, Y: 512, Angle: 0}
+		component.Position.SetValue(player, defaultPosition)
+	}
 
-    log.Printf("Player %d respawned at position %+v with %f health", playerId, component.Position.Get(player), playerData.Health)
-    return player
+	log.Printf("Player %d respawned at position %+v with %f health", playerId, component.Position.Get(player), playerData.Health)
+	return player
 }
 
 func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
-    entity := self.ECS.World.Create(component.Player, component.Position, component.Sprite)
-    player := self.ECS.World.Entry(entity)
+	entity := self.ECS.World.Create(component.Player, component.Position, component.Animation, component.Sprite)
+	player := self.ECS.World.Entry(entity)
 
-    // Create and store player metadata
-    playerData := component.PlayerData{
-        Name:   playerName,
-        Id:     playerId,
-        Health: 100,
-    }
-    component.Player.SetValue(player, playerData)
-    component.Position.SetValue(player, *position)
-    component.Sprite.SetValue(player, getShipSprite(playerId))
+	// Create and store player metadata
+	playerData := component.PlayerData{
+		Name:   playerName,
+		Id:     playerId,
+		Health: 100,
+	}
+	component.Player.SetValue(player, playerData)
+	component.Position.SetValue(player, *position)
+	component.Sprite.SetValue(player, getShipSprite(playerId))
+	component.Animation.SetValue(player, component.NewAnimationData(assets.OrangeExhaustAnimation[0], 5))
 
-    // Save metadata in the map
-    self.PlayerMetadata[playerId] = &playerData
-
-    return player
+	return player
 }
-
 
 // Returns the ecs entry given the playerId.
 func (self *GameSimulation) FindCorrespondingPlayer(playerId types.PlayerId) *donburi.Entry {
