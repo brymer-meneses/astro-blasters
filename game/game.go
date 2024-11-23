@@ -26,13 +26,13 @@ const (
 )
 
 type GameSimulation struct {
-	ECS *ecs.ECS
+	ECS       *ecs.ECS
 	OnCollide func(player *donburi.Entry)
 }
 
 func NewGameSimulation(onCollide func(player *donburi.Entry)) *GameSimulation {
 	return &GameSimulation{
-		ECS: ecs.NewECS(donburi.NewWorld()),
+		ECS:       ecs.NewECS(donburi.NewWorld()),
 		OnCollide: onCollide,
 	}
 }
@@ -142,7 +142,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	bulletPosition.Angle += math.Pi
 	bulletPosition.Forward(-40)
 
-	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position, component.Expirable)
+	entity := self.ECS.World.Create(component.Bullet, component.Sprite, component.Position, component.Expirable)
 	bullet := self.ECS.World.Entry(entity)
 
 	component.Bullet.SetValue(
@@ -159,10 +159,9 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 		bullet,
 		component.NewExpirable(time.Second),
 	)
-	animationIndex := rand.Intn(len(assets.OrangeBulletAnimation))
-	component.Animation.SetValue(
+	component.Sprite.SetValue(
 		bullet,
-		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
+		assets.Bullet,
 	)
 
 	return bullet
@@ -170,7 +169,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 
 func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
 	world := self.ECS.World
-	entity := world.Create(component.Player, component.Position, component.Sprite)
+	entity := world.Create(component.Player, component.Position, component.Sprite, component.Animation)
 	player := world.Entry(entity)
 
 	component.Player.SetValue(
@@ -188,6 +187,11 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 	component.Sprite.SetValue(
 		player,
 		getShipSprite(playerId),
+	)
+
+	component.Animation.SetValue(
+		player,
+		component.NewAnimationData(assets.OrangeExhaustAnimation[0], 5),
 	)
 
 	return player

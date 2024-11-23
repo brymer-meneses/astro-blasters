@@ -22,8 +22,10 @@ var Miscellaneous Sprite
 var Munro *text.GoTextFaceSource
 var MunroNarrow *text.GoTextFaceSource
 
-var OrangeBulletAnimation [4]SpriteSheet
-var GreenBulletAnimation [4]SpriteSheet
+var OrangeExhaustAnimation [4]SpriteSheet
+var GreenExhaustAnimation [4]SpriteSheet
+
+var Bullet *ebiten.Image
 
 var BlueExplosion SpriteSheet
 
@@ -40,6 +42,9 @@ var BattleMusic []byte
 var IntroMusic []byte
 
 func init() {
+	projectileImage := mustLoadImageFromBytes(projectile)
+	projectile := NewSprite(projectileImage, 8, 8)
+
 	iu := mustLoadImageFromBytes(iu)
 	Background = NewSprite(mustLoadImageFromBytes(background), 512, 512)
 	Ships = NewSprite(mustLoadImageFromBytes(ships), 8, 8)
@@ -48,22 +53,24 @@ func init() {
 	Arrows = NewSprite(iu, 8, 8)
 	Spacebar = NewSprite(iu, 8, 4)
 	Healthbar = NewSprite(iu, 16, 8)
-	Messagebar = NewSprite(mustLoadImageFromBytes(projectile), 24, 8)
+	Messagebar = NewSprite(projectileImage, 24, 8)
 
 	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
 	Munro = mustLoadFontFromBytes(munro)
 
 	Miscellaneous := NewSprite(mustLoadImageFromBytes(miscellaneous), 8, 8)
 
+	Bullet = projectile.GetTile(TileIndex{X: 3, Y: 6})
+
 	for i := range 4 {
-		OrangeBulletAnimation[i] = NewSpriteSheet(
+		OrangeExhaustAnimation[i] = NewSpriteSheet(
 			Miscellaneous,
 			TileIndex{5 + i, 0},
 			TileIndex{5 + i, 1},
 			TileIndex{5 + i, 2},
 			TileIndex{5 + i, 3},
 		)
-		GreenBulletAnimation[i] = NewSpriteSheet(
+		GreenExhaustAnimation[i] = NewSpriteSheet(
 			Miscellaneous,
 			TileIndex{9 + i, 0},
 			TileIndex{9 + i, 1},
