@@ -23,7 +23,12 @@ type MenuScene struct {
 }
 
 func NewMenuScene(config *config.ClientConfig) *MenuScene {
-	return &MenuScene{config: config, background: common.NewBackground(config.ScreenWidth, config.ScreenHeight), visible: true, ticker: time.NewTicker(500 * time.Millisecond)}
+	return &MenuScene{
+		config:     config,
+		background: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		ticker:     time.NewTicker(500 * time.Millisecond),
+		visible:    true,
+	}
 }
 
 func (self *MenuScene) Draw(screen *ebiten.Image) {
@@ -66,11 +71,7 @@ func (self *MenuScene) drawText(screen *ebiten.Image, msg string, fontface text.
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-// func (self *MenuScene) Layout(outsideWidth, outsideHeight int) (int, int) {
-// 	return 320, 240
-// }
-
-func (self *MenuScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *MenuScene) Update(controller *scenes.AppController) {
 	// Toggle visibility every tick
 	select {
 	case <-self.ticker.C:
@@ -81,7 +82,11 @@ func (self *MenuScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(submenu.NewSubMenuScene(self.config))
+				controller.ChangeScene(submenu.NewSubMenuScene(self.config))
 			})
 	}
+}
+
+func (Self *MenuScene) Configure(controller *scenes.AppController) {
+	controller.ChangeBackgroundMusic(assets.IntroMusic)
 }

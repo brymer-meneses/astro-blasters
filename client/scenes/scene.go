@@ -6,21 +6,27 @@ import (
 
 type Scene interface {
 	Draw(screen *ebiten.Image)
-	Update(dispatcher *Dispatcher)
+	Update(controller *AppController)
+	Configure(controller *AppController)
 }
 
 type app interface {
 	ChangeScene(scenes Scene)
+	ChangeBackgroundMusic(data []byte)
 }
 
-type Dispatcher struct {
+type AppController struct {
 	app app
 }
 
-func NewDispatcher(app app) *Dispatcher {
-	return &Dispatcher{app}
+func NewAppController(app app) *AppController {
+	return &AppController{app}
 }
 
-func (self *Dispatcher) Dispatch(scene Scene) {
+func (self *AppController) ChangeScene(scene Scene) {
 	self.app.ChangeScene(scene)
+}
+
+func (self *AppController) ChangeBackgroundMusic(data []byte) {
+	self.app.ChangeBackgroundMusic(data)
 }

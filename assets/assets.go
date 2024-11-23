@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
@@ -16,6 +17,8 @@ var Spacebar Sprite
 var Healthbar Sprite
 var Messagebar Sprite
 
+var Miscellaneous Sprite
+
 var Munro *text.GoTextFaceSource
 var MunroNarrow *text.GoTextFaceSource
 
@@ -24,29 +27,44 @@ var GreenBulletAnimation [4]SpriteSheet
 
 var BlueExplosion SpriteSheet
 
+//go:embed sfx/laser.wav
+var LaserAudio []byte
+
+//go:embed sfx/start.wav
+var StartAudio []byte
+
+//go:embed sfx/BattleMusic.mp3
+var BattleMusic []byte
+
+//go:embed sfx/IntroMusic.mp3
+var IntroMusic []byte
+
 func init() {
-	Background = mustLoadSpriteFromBytes(background, 512, 512)
-	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
-	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
-	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
-	Spacebar = mustLoadSpriteFromBytes(iu, 8, 4)
-	Healthbar = mustLoadSpriteFromBytes(iu, 16, 8)
-	Messagebar = mustLoadSpriteFromBytes(projectile, 24, 8)
+	iu := mustLoadImageFromBytes(iu)
+	Background = NewSprite(mustLoadImageFromBytes(background), 512, 512)
+	Ships = NewSprite(mustLoadImageFromBytes(ships), 8, 8)
+
+	Borders = NewSprite(iu, 16, 16)
+	Arrows = NewSprite(iu, 8, 8)
+	Spacebar = NewSprite(iu, 8, 4)
+	Healthbar = NewSprite(iu, 16, 8)
+	Messagebar = NewSprite(mustLoadImageFromBytes(projectile), 24, 8)
 
 	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
 	Munro = mustLoadFontFromBytes(munro)
 
-	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
+	Miscellaneous := NewSprite(mustLoadImageFromBytes(miscellaneous), 8, 8)
+
 	for i := range 4 {
 		OrangeBulletAnimation[i] = NewSpriteSheet(
-			miscSprite,
+			Miscellaneous,
 			TileIndex{5 + i, 0},
 			TileIndex{5 + i, 1},
 			TileIndex{5 + i, 2},
 			TileIndex{5 + i, 3},
 		)
 		GreenBulletAnimation[i] = NewSpriteSheet(
-			miscSprite,
+			Miscellaneous,
 			TileIndex{9 + i, 0},
 			TileIndex{9 + i, 1},
 			TileIndex{9 + i, 2},
@@ -55,7 +73,7 @@ func init() {
 	}
 
 	BlueExplosion = NewSpriteSheet(
-		miscSprite,
+		Miscellaneous,
 		TileIndex{12, 6},
 		TileIndex{11, 6},
 		TileIndex{10, 6},
@@ -84,28 +102,12 @@ var iu []byte
 //go:embed SpaceShooterAssetPack/Projectiles.png
 var projectile []byte
 
-//go:embed sfx/laser.wav
-var LaserAudio []byte
-
-//go:embed sfx/start.wav
-var StartAudio []byte
-
-//go:embed sfx/background.wav
-var BackgroundAudio []byte
-
-func mustLoadAudioFromBytes(data []byte) []byte {
-	if len(data) == 0 {
-		panic("audio file is empty or not embedded correctly")
-	}
-	return data
-}
-
-func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
+func mustLoadImageFromBytes(data []byte) *ebiten.Image {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
 		panic(err)
 	}
-	return Sprite{image, width, height}
+	return image
 }
 
 func mustLoadFontFromBytes(data []byte) *text.GoTextFaceSource {
