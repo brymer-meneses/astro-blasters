@@ -71,8 +71,10 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
+
 	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
 	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
+
 	var mainPlayer *donburi.Entry
 
 	for _, player := range response.PlayerData {
@@ -159,6 +161,19 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 	if inpututil.IsKeyJustReleased(ebiten.KeyA) || inpututil.IsKeyJustReleased(ebiten.KeyLeft) {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
+	now := time.Now()
+
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		
+		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 300*time.Millisecond {
+			sendMove(types.PlayerStartFireBullet) 
+			self.laserPlayer.Rewind()
+			self.laserPlayer.Play()
+			self.lastFireTime = now 
+		} else {
+			sendMove(types.PlayerStopFireBullet)
+		}
+
 
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		now := time.Now()
@@ -395,25 +410,26 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 		switch message.MessageType {
 		case "UpdatePosition":
-			var updatePosition messages.UpdatePosition
-			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
-				continue
-			}
-			if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
-				component.Position.SetValue(player, updatePosition.Position)
-			}
+
+				var updatePosition messages.UpdatePosition
+				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
+					continue
+				}
+				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
+					component.Position.SetValue(player, updatePosition.Position)
+				}
 		case "EventPlayerConnected":
-			var eventPlayerConnected messages.EventPlayerConnected
-			if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
-				continue
-			}
-			self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
+				var eventPlayerConnected messages.EventPlayerConnected
+				if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
+					continue
+				}
+				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
 		case "EventPlayerMove":
-			var eventPlayerMove messages.EventPlayerMove
-			if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
-				continue
-			}
-			self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+				var eventPlayerMove messages.EventPlayerMove
+				if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
+					continue
+				}
+				self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
 		case "EventUpdateHealth":
 			var updateHealth messages.EventUpdateHealth
 			if err := rpc.DecodeExpectedMessage(message, &updateHealth); err != nil {
@@ -428,11 +444,18 @@ func (self *ArenaScene) receiveServerUpdates() {
 			if playerDied.PlayerId == self.playerId {
 				log.Printf("You died")
 			}
+			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
+		case "EventPlayerRespawned":
+			var playerRespawn messages.EventPlayerRespawned
+			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
+				continue
+			}
+			self.simulation.RespawnPlayer(playerRespawn.PlayerId, &playerRespawn.Position)
 		default:
-		}
 	}
 }
 
 func (self *ArenaScene) Configure(controller *scenes.AppController) {
 	controller.ChangeBackgroundMusic(assets.BattleMusic)
 }
+

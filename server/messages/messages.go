@@ -65,6 +65,7 @@ type EventUpdateHealth struct {
 
 type EventPlayerDied struct {
 	PlayerId types.PlayerId // The player whose health is being updated
+	Position   component.PositionData
 }
 
 type EventPlayerRespawned struct {
