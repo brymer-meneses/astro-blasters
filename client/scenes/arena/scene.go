@@ -386,4 +386,6 @@ func (self *ArenaScene) receiveServerUpdates() {
 	}
 }
 
-func (self *ArenaScene) Configure(controller *scenes.AppController) {}
+func (self *ArenaScene) Configure(controller *scenes.AppController) {
+	controller.ChangeBackgroundMusic(assets.BattleMusic)
+}

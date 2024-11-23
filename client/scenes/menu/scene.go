@@ -88,4 +88,5 @@ func (self *MenuScene) Update(controller *scenes.AppController) {
 }
 
 func (Self *MenuScene) Configure(controller *scenes.AppController) {
+	controller.ChangeBackgroundMusic(assets.IntroMusic)
 }

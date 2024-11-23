@@ -2,7 +2,6 @@ package client
 
 import (
 	"bytes"
-	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/menu"
@@ -24,15 +23,13 @@ type App struct {
 }
 
 func NewApp(config *config.ClientConfig) *App {
-	scene := menu.NewMenuScene(config)
 	app := &App{
 		config:       config,
-		scene:        scene,
 		musicContext: audio.NewContext(44100),
 	}
-	app.controller = scenes.NewAppController(app)
 
-	app.ChangeBackgroundMusic(assets.IntroMusic)
+	app.controller = scenes.NewAppController(app)
+	app.controller.ChangeScene(menu.NewMenuScene(config))
 	return app
 }
 
@@ -58,11 +55,16 @@ func (self *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHei
 }
 
 func (self *App) ChangeScene(scene scenes.Scene) {
-	self.scene.Configure(self.controller)
+	scene.Configure(self.controller)
+
 	self.scene = scene
 }
 
 func (self *App) ChangeBackgroundMusic(data []byte) {
+	if self.musicPlayer != nil && self.musicPlayer.IsPlaying() {
+		self.musicPlayer.Close()
+	}
+
 	stream, err := mp3.DecodeWithoutResampling(bytes.NewReader(data))
 	if err != nil {
 		panic(err)

@@ -30,8 +30,8 @@ var LaserAudio []byte
 //go:embed sfx/start.wav
 var StartAudio []byte
 
-//go:embed sfx/background.wav
-var BackgroundAudio []byte
+//go:embed sfx/BattleMusic.mp3
+var BattleMusic []byte
 
 //go:embed sfx/IntroMusic.mp3
 var IntroMusic []byte
