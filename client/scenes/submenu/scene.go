@@ -68,7 +68,7 @@ func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 
 	// Spacebar instruction
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 3.5, 3.5, 0, 200, 530)
-	self.drawTransformedImage(screen, assets.Bar.GetTile(assets.TileIndex{X: 5, Y: 24}), 5, 5, 0, 208, 555)
+	self.drawTransformedImage(screen, assets.Spacebar.GetTile(assets.TileIndex{X: 5, Y: 24}), 5, 5, 0, 208, 555)
 	self.drawText(screen, "Press the spacebar to shoot bullets", fontface, 30, 458, 560, lineSpacing)
 
 	// Draw subtext

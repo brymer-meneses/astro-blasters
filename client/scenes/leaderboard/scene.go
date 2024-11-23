@@ -41,43 +41,43 @@ func (self *LeaderboardScene) Draw(screen *ebiten.Image) {
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 50, 32, 0, 150, 165, [4]float32{1, 1, 1, 1})
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 50, 32, 0, 150, 165, [4]float32{0.25, 0.25, 0.25, 1})
 
-	self.drawText(screen, "The rankings are determined by who lasted the longest in the battle, ", fontface, 26, 555, 230, lineSpacing)
-	self.drawText(screen, "with the bravest holding out until the bitter end. Well done, cadets!", fontface, 26, 555, 260, lineSpacing)
+	self.drawText(screen, "The battle has ended! The rankings reflect your bravery, from those with", fontface, 26, 555, 230, lineSpacing)
+	self.drawText(screen, "the highest kills to those who stood their ground. Well done, cadets!", fontface, 26, 555, 260, lineSpacing)
 
 	// Rank 1
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 290, [4]float32{0.25, 0.25, 0.25, 1})
 	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 290, [4]float32{0.8, 0.8, 0.8, 1})
 	self.drawText(screen, "1", fontface, 35, 283, 322, lineSpacing)
 	self.drawText(screen, "Username", fontface, 50, 440, 322, lineSpacing)
-	self.drawText(screen, "00:00", fontface, 50, 760, 322, lineSpacing)
+	self.drawText(screen, "00 Kills", fontface, 50, 740, 322, lineSpacing)
 
 	// Rank 2
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 360, [4]float32{0.25, 0.25, 0.25, 1})
 	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 360, [4]float32{0.9, 0.9, 0.9, 1})
 	self.drawText(screen, "2", fontface, 35, 285, 392, lineSpacing)
 	self.drawText(screen, "Username", fontface, 50, 440, 392, lineSpacing)
-	self.drawText(screen, "00:00", fontface, 50, 760, 392, lineSpacing)
+	self.drawText(screen, "00 Kills", fontface, 50, 740, 392, lineSpacing)
 
 	// Rank 3
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 430, [4]float32{0.25, 0.25, 0.25, 1})
 	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 430, [4]float32{0.8, 0.8, 0.8, 1})
 	self.drawText(screen, "3", fontface, 35, 285, 462, lineSpacing)
 	self.drawText(screen, "Username", fontface, 50, 440, 462, lineSpacing)
-	self.drawText(screen, "00:00", fontface, 50, 760, 462, lineSpacing)
+	self.drawText(screen, "00 Kills", fontface, 50, 740, 462, lineSpacing)
 
 	// Rank 4
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 500, [4]float32{0.25, 0.25, 0.25, 1})
 	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 500, [4]float32{0.9, 0.9, 0.9, 1})
 	self.drawText(screen, "4", fontface, 35, 286, 532, lineSpacing)
 	self.drawText(screen, "Username", fontface, 50, 440, 532, lineSpacing)
-	self.drawText(screen, "00:00", fontface, 50, 760, 532, lineSpacing)
+	self.drawText(screen, "00 Kills", fontface, 50, 740, 532, lineSpacing)
 
 	// Rank 5
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 570, [4]float32{0.25, 0.25, 0.25, 1})
 	self.drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 570, [4]float32{0.8, 0.8, 0.8, 1})
 	self.drawText(screen, "5", fontface, 35, 285, 602, lineSpacing)
 	self.drawText(screen, "Username", fontface, 50, 440, 602, lineSpacing)
-	self.drawText(screen, "00:00", fontface, 50, 760, 602, lineSpacing)
+	self.drawText(screen, "00 Kills", fontface, 50, 740, 602, lineSpacing)
 }
 
 // Helper function to draw an image with transformations

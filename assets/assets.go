@@ -12,7 +12,9 @@ var Background Sprite
 var Ships Sprite
 var Borders Sprite
 var Arrows Sprite
-var Bar Sprite
+var Spacebar Sprite
+var Healthbar Sprite
+var Messagebar Sprite
 
 var Munro *text.GoTextFaceSource
 var MunroNarrow *text.GoTextFaceSource
@@ -27,7 +29,9 @@ func init() {
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
 	Borders = mustLoadSpriteFromBytes(iu, 16, 16)
 	Arrows = mustLoadSpriteFromBytes(iu, 8, 8)
-	Bar = mustLoadSpriteFromBytes(iu, 8, 4)
+	Spacebar = mustLoadSpriteFromBytes(iu, 8, 4)
+	Healthbar = mustLoadSpriteFromBytes(iu, 16, 8)
+	Messagebar = mustLoadSpriteFromBytes(projectile, 24, 8)
 
 	MunroNarrow = mustLoadFontFromBytes(munroNarrow)
 	Munro = mustLoadFontFromBytes(munro)
@@ -76,6 +80,9 @@ var ships []byte
 
 //go:embed SpaceShooterAssetPack/IU.png
 var iu []byte
+
+//go:embed SpaceShooterAssetPack/Projectiles.png
+var projectile []byte
 
 //go:embed sfx/laser.wav
 var LaserAudio []byte
