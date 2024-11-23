@@ -23,7 +23,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
@@ -45,12 +44,8 @@ type ArenaScene struct {
 	shakeDuration  int
 	shakeIntensity float64
 
-	player           *donburi.Entry
-	playerId         types.PlayerId
-	audioContext     *audio.Context
-	laserPlayer      *audio.Player
-	backgroundPlayer *audio.Player
-	enterGamePlayer  *audio.Player
+	player   *donburi.Entry
+	playerId types.PlayerId
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
@@ -77,7 +72,7 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	}
 
 	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
-	simulation := game.NewGameSimulation()
+	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
 	var mainPlayer *donburi.Entry
 
 	for _, player := range response.PlayerData {
@@ -164,10 +159,19 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 	if inpututil.IsKeyJustReleased(ebiten.KeyA) || inpututil.IsKeyJustReleased(ebiten.KeyLeft) {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
+	now := time.Now()
 
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		sendMove(types.PlayerStartFireBullet)
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+
+		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 300*time.Millisecond {
+			sendMove(types.PlayerStartFireBullet)
+			self.lastFireTime = now
+		} else {
+			sendMove(types.PlayerStopFireBullet)
+		}
+
 	}
+
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
 	}
@@ -311,6 +315,9 @@ func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.
 }
 
 func (self *ArenaScene) drawHealthBar(screen *ebiten.Image, position *component.PositionData, health float64, maxHealth float64) {
+	if health <= 0 {
+		return
+	}
 	healthBarWidth := 50.0
 	healthBarHeight := 3.8
 
@@ -381,30 +388,39 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 		switch message.MessageType {
 		case "UpdatePosition":
-			{
-				var updatePosition messages.UpdatePosition
-				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
-					continue
-				}
-				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
-					component.Position.SetValue(player, updatePosition.Position)
-				}
+			var updatePosition messages.UpdatePosition
+			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
+				continue
+			}
+			if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
+				component.Position.SetValue(player, updatePosition.Position)
 			}
 		case "EventPlayerConnected":
-			{
-				var eventPlayerConnected messages.EventPlayerConnected
-				if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
-					continue
-				}
-				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
+			var eventPlayerConnected messages.EventPlayerConnected
+			if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
+				continue
 			}
+			self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
 		case "EventPlayerMove":
-			{
-				var eventPlayerMove messages.EventPlayerMove
-				if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
-					continue
-				}
-				self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+			var eventPlayerMove messages.EventPlayerMove
+			if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
+				continue
+			}
+			self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+		case "EventUpdateHealth":
+			var updateHealth messages.EventUpdateHealth
+			if err := rpc.DecodeExpectedMessage(message, &updateHealth); err != nil {
+				continue
+			}
+			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
+			log.Print(updateHealth.Health)
+		case "EventPlayerDied":
+			var playerDied messages.EventPlayerDied
+			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
+				continue
+			}
+			if playerDied.PlayerId == self.playerId {
+				log.Printf("You died")
 			}
 		default:
 		}
