@@ -77,6 +77,22 @@ var ships []byte
 //go:embed SpaceShooterAssetPack/IU.png
 var iu []byte
 
+//go:embed sfx/laser.wav
+var LaserAudio []byte
+
+//go:embed sfx/start.wav
+var StartAudio []byte
+
+//go:embed sfx/background.wav
+var BackgroundAudio []byte
+
+func mustLoadAudioFromBytes(data []byte) []byte {
+	if len(data) == 0 {
+		panic("audio file is empty or not embedded correctly")
+	}
+	return data
+}
+
 func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
 	if err != nil {
