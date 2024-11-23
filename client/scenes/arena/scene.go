@@ -4,6 +4,7 @@ import (
 	"context"
 	"image/color"
 	"log"
+	"math"
 	"math/rand/v2"
 	"space-shooter/assets"
 	"space-shooter/client/config"
@@ -18,19 +19,14 @@ import (
 	"sync"
 	"time"
 
+	dmath "github.com/yohamta/donburi/features/math"
+
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
 	"github.com/yohamta/donburi/filter"
-)
-
-const (
-	MapWidth      = 4096
-	MapHeight     = 4096
-	MinimapWidth  = 150
-	MinimapHeight = 150
 )
 
 type ArenaScene struct {
@@ -75,8 +71,9 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		log.Fatal("Room is full")
 	}
 
-	camera := NewCamera(0, 0, MapHeight, MapWidth, config)
-	simulation := game.NewGameSimulation()
+	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
+	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
+
 	var mainPlayer *donburi.Entry
 
 	for _, player := range response.PlayerData {
@@ -91,7 +88,7 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background1: common.NewBackground(MapWidth, MapHeight),
+		background1: common.NewBackground(game.MapWidth, game.MapHeight),
 		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
 		playerId:    response.PlayerId,
 		player:      mainPlayer,
@@ -116,7 +113,6 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 
 	self.drawBackground(screen)
 	self.drawEntities(screen)
-	self.drawMinimap(screen)
 
 	// if player is dead (ui only) {
 	// Make the entire screen gray with overlay
@@ -135,7 +131,7 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	// } //add backend part: 5 second countdown before respawn, can't move when dead, etc.
 }
 
-func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *ArenaScene) Update(controller *scenes.AppController) {
 	ctx := context.Background()
 	position := component.Position.Get(self.player)
 
@@ -165,9 +161,16 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
-		sendMove(types.PlayerStartFireBullet)
+	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		now := time.Now()
+		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 300*time.Millisecond {
+			sendMove(types.PlayerStartFireBullet)
+			self.lastFireTime = now
+		} else {
+			sendMove(types.PlayerStopFireBullet)
+		}
 	}
+
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
 	}
@@ -176,7 +179,7 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyL) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(leaderboard.NewLeaderboardScene(self.config))
+				controller.ChangeScene(leaderboard.NewLeaderboardScene(self.config))
 			})
 	}
 
@@ -205,15 +208,18 @@ func (self *ArenaScene) drawBackground(screen *ebiten.Image) {
 }
 
 func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
-	drawSprite := func(position *component.PositionData, scale float64, sprite *ebiten.Image) {
+	drawSprite := func(position *component.PositionData, scale float64, angleOffset float64, offset dmath.Vec2, sprite *ebiten.Image) {
 		// Center the texture.
 		x0 := float64(sprite.Bounds().Dx()) / 2
 		y0 := float64(sprite.Bounds().Dy()) / 2
 
 		opts := &ebiten.DrawImageOptions{}
 		opts.GeoM.Translate(-x0, -y0)
+		opts.GeoM.Translate(offset.X, offset.Y)
 
 		opts.GeoM.Rotate(position.Angle)
+		opts.GeoM.Rotate(angleOffset)
+
 		opts.GeoM.Scale(scale, scale)
 		opts.GeoM.Translate(position.X, position.Y)
 		opts.GeoM.Translate(self.camera.X+x0, self.camera.Y+y0)
@@ -231,11 +237,9 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			font := text.GoTextFace{Source: assets.Munro, Size: 20}
 			width, _ := text.Measure(player.Name, &font, 12)
 
-			// Calculate the position of the text to center it above the health bar
-			x := (position.X - width/2) + 6 // Center horizontally
-			y := position.Y - 55            // Above the health bar
+			x := (position.X - width/2) + 6
+			y := position.Y - 55
 
-			// Apply camera translation
 			x += self.camera.X
 			y += self.camera.Y
 
@@ -244,9 +248,21 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			opts.GeoM.Translate(x, y)
 
 			text.Draw(screen, player.Name, &font, opts)
-
 			self.drawHealthBar(screen, position, player.Health, 100)
-			drawSprite(position, 4.0, component.Sprite.GetValue(entity))
+
+			// Draw the player ship
+			drawSprite(position, 4.0, 0, dmath.NewVec2(0, 0), component.Sprite.GetValue(entity))
+
+			if player.Id != self.playerId {
+				enemyPosition := component.Position.Get(entity)
+				self.drawPointingArrow(screen, enemyPosition)
+			}
+
+			if player.IsMovingForward {
+				exhaust := component.Animation.Get(entity).Frame()
+				drawSprite(position, 4.0, 0, dmath.NewVec2(0, 8), exhaust)
+			}
+
 		} else if entity.HasComponent(component.Explosion) {
 			sprite := component.Animation.Get(entity).Frame()
 			position := component.Position.GetValue(entity)
@@ -255,12 +271,38 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			for i := 0; i < explosion.Count; i++ {
 				position.X += 25 * rand.Float64()
 				position.Y += 25 * rand.Float64()
-				drawSprite(&position, 4.0, sprite)
+				drawSprite(&position, 4.0, 0, dmath.NewVec2(0, 0), sprite)
 			}
 		} else if entity.HasComponent(component.Bullet) {
-			drawSprite(position, 4.0, component.Animation.Get(entity).Frame())
+			drawSprite(position, 4.0, -math.Pi/4, dmath.NewVec2(0, 0), component.Sprite.GetValue(entity))
 		}
 	}
+}
+
+func (self *ArenaScene) drawPointingArrow(screen *ebiten.Image, enemyPosition *component.PositionData) {
+	ourPosition := component.Position.Get(self.player)
+	arrow := assets.Arrows.GetTile(assets.TileIndex{X: 9, Y: 12})
+
+	vec := dmath.NewVec2(enemyPosition.X-ourPosition.X, enemyPosition.Y-ourPosition.Y)
+	// do not draw the arrows if they are within the vicinity of the player
+	if vec.Magnitude() < 500 {
+		return
+	}
+
+	normalizedVec := vec.Normalized().MulScalar(100)
+	angle := vec.Angle(dmath.NewVec2(1, 0))
+
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-float64(arrow.Bounds().Dx()), -float64(arrow.Bounds().Dy()))
+	// The image is rotated by 90 degrees, undo that rotation.
+	op.GeoM.Rotate(-math.Pi / 2)
+	op.GeoM.Rotate(angle)
+	op.GeoM.Scale(2, 2)
+	op.GeoM.Translate(ourPosition.X, ourPosition.Y)
+	op.GeoM.Translate(normalizedVec.X, normalizedVec.Y)
+	op.GeoM.Translate(self.camera.X, self.camera.Y)
+
+	screen.DrawImage(arrow, op)
 }
 
 func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.Image, position *component.PositionData, healthBarWidth float64) {
@@ -282,6 +324,9 @@ func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.
 }
 
 func (self *ArenaScene) drawHealthBar(screen *ebiten.Image, position *component.PositionData, health float64, maxHealth float64) {
+	if health <= 0 {
+		return
+	}
 	healthBarWidth := 50.0
 	healthBarHeight := 3.8
 
@@ -342,82 +387,6 @@ func (self *ArenaScene) drawText(screen *ebiten.Image, msg string, fontface text
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
-	// Create the minimap image
-	minimap := ebiten.NewImage(MinimapWidth, MinimapHeight)
-	minimap.Fill(color.Black)
-
-	// Scale factor to map world coordinates to minimap coordinates
-	scaleX := float64(MinimapWidth) / float64(MapWidth)
-	scaleY := float64(MinimapHeight) / float64(MapHeight)
-
-	// Get the player's position to center the minimap around it
-	playerPos := component.Position.Get(self.simulation.FindCorrespondingPlayer(self.playerId))
-
-	// Calculate offsets to center the player in the minimap
-	offsetX := playerPos.X*scaleX - float64(MinimapWidth)/2
-	offsetY := playerPos.Y*scaleY - float64(MinimapHeight)/2
-
-	spriteScale := 1.0
-
-	// Draw all players on the minimap, with the main player centered
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-	for player := range query.Iter(self.simulation.ECS.World) {
-		position := component.Position.Get(player)
-		sprite := component.Sprite.GetValue(player)
-
-		// Calculate the position of each player relative to the centered player
-		minimapX := (position.X * scaleX) - offsetX
-		minimapY := (position.Y * scaleY) - offsetY
-
-		// Check if the ship sprite is available
-		x_0 := (float64(sprite.Bounds().Dx()) / 2)
-		y_0 := (float64(sprite.Bounds().Dy()) / 2)
-
-		// Scale down the ship for the minimap
-		opts := &ebiten.DrawImageOptions{}
-		opts.GeoM.Translate(-x_0, -y_0)
-		opts.GeoM.Rotate(position.Angle)
-
-		opts.GeoM.Scale(spriteScale, spriteScale)
-		opts.GeoM.Translate(minimapX, minimapY)
-		minimap.DrawImage(sprite, opts)
-	}
-
-	// Draw the minimap onto the main screen in the upper-left corner
-	minimapScreenOpts := &ebiten.DrawImageOptions{}
-	minimapScreenOpts.GeoM.Translate(10, 10) // Minimap position on the screen
-	screen.DrawImage(minimap, minimapScreenOpts)
-
-	// Draw a white border around the minimap
-	borderColor := color.RGBA{255, 255, 255, 255} // White color for the border
-	borderSize := 2
-
-	// Top border
-	topBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-	topBorder.Fill(borderColor)
-	screen.DrawImage(topBorder, minimapScreenOpts)
-
-	// Bottom border
-	bottomBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-	bottomBorder.Fill(borderColor)
-	bottomBorderOpts := *minimapScreenOpts
-	bottomBorderOpts.GeoM.Translate(0, float64(MinimapHeight+borderSize))
-	screen.DrawImage(bottomBorder, &bottomBorderOpts)
-
-	// Left border
-	leftBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
-	leftBorder.Fill(borderColor)
-	screen.DrawImage(leftBorder, minimapScreenOpts)
-
-	// Right border
-	rightBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
-	rightBorder.Fill(borderColor)
-	rightBorderOpts := *minimapScreenOpts
-	rightBorderOpts.GeoM.Translate(float64(MinimapWidth+borderSize), 0)
-	screen.DrawImage(rightBorder, &rightBorderOpts)
-}
-
 // Receives information from the server and updates the game state accordingly.
 func (self *ArenaScene) receiveServerUpdates() {
 	for {
@@ -428,32 +397,51 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 		switch message.MessageType {
 		case "UpdatePosition":
-			{
-				var updatePosition messages.UpdatePosition
-				if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
-					continue
-				}
-				if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
-					component.Position.SetValue(player, updatePosition.Position)
-				}
+
+			var updatePosition messages.UpdatePosition
+			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
+				continue
+			}
+			if player := self.simulation.FindCorrespondingPlayer(updatePosition.PlayerId); player != nil {
+				component.Position.SetValue(player, updatePosition.Position)
 			}
 		case "EventPlayerConnected":
-			{
-				var eventPlayerConnected messages.EventPlayerConnected
-				if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
-					continue
-				}
-				self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
+			var eventPlayerConnected messages.EventPlayerConnected
+			if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
+				continue
 			}
+			self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
 		case "EventPlayerMove":
-			{
-				var eventPlayerMove messages.EventPlayerMove
-				if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
-					continue
-				}
-				self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+			var eventPlayerMove messages.EventPlayerMove
+			if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
+				continue
 			}
+			self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+		case "EventUpdateHealth":
+			var updateHealth messages.EventUpdateHealth
+			if err := rpc.DecodeExpectedMessage(message, &updateHealth); err != nil {
+				continue
+			}
+			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
+		case "EventPlayerDied":
+			var playerDied messages.EventPlayerDied
+			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
+				continue
+			}
+			if playerDied.PlayerId == self.playerId {
+				log.Printf("You died")
+			}
+		case "EventPlayerRespawned":
+			var playerRespawn messages.EventPlayerRespawned
+			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
+				continue
+			}
+			self.simulation.RespawnPlayer(playerRespawn.PlayerId, &playerRespawn.Position)
 		default:
 		}
 	}
+}
+
+func (self *ArenaScene) Configure(controller *scenes.AppController) {
+	controller.ChangeBackgroundMusic(assets.BattleMusic)
 }

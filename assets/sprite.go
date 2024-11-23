@@ -17,6 +17,10 @@ type TileIndex struct {
 	Y int
 }
 
+func NewSprite(image *ebiten.Image, tileWidth int, TileHeight int) Sprite {
+	return Sprite{Image: image, TileWidth: tileWidth, TileHeight: TileHeight}
+}
+
 func (self *Sprite) GetTile(tile TileIndex) *ebiten.Image {
 	x0 := tile.X * self.TileWidth
 	y0 := tile.Y * self.TileHeight

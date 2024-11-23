@@ -15,19 +15,32 @@ import (
 )
 
 const (
-	PlayerDamagePerHit  = 0.1
+	PlayerDamagePerHit  = 5
 	PlayerMovementSpeed = 5
 	PlayerRotationSpeed = 5
+	MapWidth            = 4096
+	MapHeight           = 4096
+
+	ShipWidth  = 32
+	ShipHeight = 32
 )
 
 type GameSimulation struct {
-	ECS *ecs.ECS
+	ECS       *ecs.ECS
+	OnCollide func(player *donburi.Entry)
 }
 
-func NewGameSimulation() *GameSimulation {
+func NewGameSimulation(onCollide func(player *donburi.Entry)) *GameSimulation {
 	return &GameSimulation{
-		ECS: ecs.NewECS(donburi.NewWorld()),
+		ECS:       ecs.NewECS(donburi.NewWorld()),
+		OnCollide: onCollide,
 	}
+}
+
+func (self *GameSimulation) UpdatePlayerHealth(playerId types.PlayerId, health float64) {
+	player := self.FindCorrespondingPlayer(playerId)
+	playerData := component.Player.Get(player)
+	playerData.Health = health
 }
 
 func (self *GameSimulation) Update() {
@@ -44,10 +57,9 @@ func (self *GameSimulation) Update() {
 		didCollide := false
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
-			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 10) {
-				playerData := component.Player.Get(player)
-				playerData.Health -= PlayerDamagePerHit
+			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				didCollide = true
+				self.OnCollide(player)
 			}
 		}
 
@@ -61,23 +73,32 @@ func (self *GameSimulation) Update() {
 
 	for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
 		playerData := component.Player.Get(player)
-		position := component.Position.Get(player)
 
 		if playerData.IsFiringBullet {
 			self.fireBullet(player)
 		}
 
+		futurePosition := component.Position.GetValue(player)
 		if playerData.IsMovingForward {
-			position.Forward(PlayerMovementSpeed)
+			futurePosition.Forward(PlayerMovementSpeed)
 		}
 
 		if playerData.IsRotatingClockwise {
-			position.Rotate(PlayerRotationSpeed)
+			futurePosition.Rotate(PlayerRotationSpeed)
 		}
 
 		if playerData.IsRotatingCounterClockwise {
-			position.Rotate(-PlayerRotationSpeed)
+			futurePosition.Rotate(-PlayerRotationSpeed)
 		}
+
+		if futurePosition.X < ShipWidth || futurePosition.X > MapWidth-ShipWidth {
+			continue
+		}
+		if futurePosition.Y < ShipHeight || futurePosition.Y > MapHeight-ShipHeight {
+			continue
+		}
+
+		component.Position.SetValue(player, futurePosition)
 	}
 }
 
@@ -121,7 +142,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	bulletPosition.Angle += math.Pi
 	bulletPosition.Forward(-40)
 
-	entity := self.ECS.World.Create(component.Bullet, component.Animation, component.Position, component.Expirable)
+	entity := self.ECS.World.Create(component.Bullet, component.Sprite, component.Position, component.Expirable)
 	bullet := self.ECS.World.Entry(entity)
 
 	component.Bullet.SetValue(
@@ -138,36 +159,54 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 		bullet,
 		component.NewExpirable(time.Second),
 	)
-	animationIndex := rand.Intn(len(assets.OrangeBulletAnimation))
-	component.Animation.SetValue(
+	component.Sprite.SetValue(
 		bullet,
-		component.NewAnimationData(assets.OrangeBulletAnimation[animationIndex], 5),
+		assets.Bullet,
 	)
 
 	return bullet
 }
 
-func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
-	world := self.ECS.World
-	entity := world.Create(component.Player, component.Position, component.Sprite)
-	player := world.Entry(entity)
+func (self *GameSimulation) RespawnPlayer(playerId types.PlayerId, newPosition *component.PositionData) *donburi.Entry {
+	// Find the existing player entity
+	player := self.FindCorrespondingPlayer(playerId)
+	if player == nil {
+		log.Printf("Error: Player with ID %d not found, cannot respawn", playerId)
+		return nil
+	}
 
-	component.Player.SetValue(
-		player,
-		component.PlayerData{
-			Name:   playerName,
-			Id:     playerId,
-			Health: 100,
-		},
-	)
-	component.Position.SetValue(
-		player,
-		*position,
-	)
-	component.Sprite.SetValue(
-		player,
-		getShipSprite(playerId),
-	)
+	// Reset health
+	playerData := component.Player.Get(player)
+	playerData.Health = 100 // Reset health to full
+	component.Player.SetValue(player, *playerData)
+
+	// Update position
+	if newPosition != nil {
+		component.Position.SetValue(player, *newPosition)
+	} else {
+		// Use a default spawn position if none is provided
+		defaultPosition := component.PositionData{X: 512, Y: 512, Angle: 0}
+		component.Position.SetValue(player, defaultPosition)
+	}
+
+	log.Printf("Player %d respawned at position %+v with %f health", playerId, component.Position.Get(player), playerData.Health)
+	return player
+}
+
+func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
+	entity := self.ECS.World.Create(component.Player, component.Position, component.Animation, component.Sprite)
+	player := self.ECS.World.Entry(entity)
+
+	// Create and store player metadata
+	playerData := component.PlayerData{
+		Name:   playerName,
+		Id:     playerId,
+		Health: 100,
+	}
+	component.Player.SetValue(player, playerData)
+	component.Position.SetValue(player, *position)
+	component.Sprite.SetValue(player, getShipSprite(playerId))
+	component.Animation.SetValue(player, component.NewAnimationData(assets.OrangeExhaustAnimation[0], 5))
 
 	return player
 }

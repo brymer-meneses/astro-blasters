@@ -106,7 +106,7 @@ func (self *StarterScene) RenderCursor(screen *ebiten.Image) {
 	}
 }
 
-func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *StarterScene) Update(controller *scenes.AppController) {
 	// Toggle focus when the enter is pressed
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		self.isFocused = !self.isFocused
@@ -116,7 +116,7 @@ func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
 	// Only handle input if the input box is focused
 	if self.isFocused {
 		// Update cursor blink timer
-		self.cursorTimer += time.Second / time.Duration(ebiten.ActualTPS()) // Use ActualTPS
+		self.cursorTimer += time.Second / 60
 		if self.cursorTimer > time.Second/2 {
 			self.cursorVisible = !self.cursorVisible
 			self.cursorTimer = 0
@@ -143,7 +143,9 @@ func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(arena.NewArenaScene(self.config, self.inputText))
+				controller.ChangeScene(arena.NewArenaScene(self.config, self.inputText))
 			})
 	}
 }
+
+func (self *StarterScene) Configure(controller *scenes.AppController) {}
