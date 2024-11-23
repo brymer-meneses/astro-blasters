@@ -109,7 +109,7 @@ func (self *LeaderboardScene) drawText(screen *ebiten.Image, msg string, fontfac
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-func (self *LeaderboardScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *LeaderboardScene) Update(controller *scenes.AppController) {
 	// if ebiten.IsKeyPressed(ebiten.KeyShift) {
 	// 	os.Exit(0) // Exit the program with a status code of 0 (normal exit)
 	// }
@@ -122,3 +122,5 @@ func (self *LeaderboardScene) Update(dispatcher *scenes.Dispatcher) {
 		self.scrollPosition++
 	}
 }
+
+func (self *LeaderboardScene) Configure(controller *scenes.AppController) {}

@@ -98,7 +98,7 @@ func (self *SubMenuScene) drawText(screen *ebiten.Image, msg string, fontface te
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-func (self *SubMenuScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *SubMenuScene) Update(controller *scenes.AppController) {
 	// Toggle visibility every tick
 	select {
 	case <-self.ticker.C:
@@ -109,7 +109,9 @@ func (self *SubMenuScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyP) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(starter.NewStarterScene(self.config))
+				controller.ChangeScene(starter.NewStarterScene(self.config))
 			})
 	}
 }
+
+func (self *SubMenuScene) Configure(controller *scenes.AppController) {}

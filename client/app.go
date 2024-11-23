@@ -1,27 +1,38 @@
 package client
 
 import (
+	"bytes"
+	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/menu"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
 )
 
 type App struct {
 	config *config.ClientConfig
 
-	sceneDispatcher *scenes.Dispatcher
-	scene           scenes.Scene
+	controller *scenes.AppController
+	scene      scenes.Scene
+
+	musicContext *audio.Context
+	musicPlayer  *audio.Player
+	audioStream  *audio.Player
 }
 
 func NewApp(config *config.ClientConfig) *App {
 	scene := menu.NewMenuScene(config)
 	app := &App{
-		config: config,
-		scene:  scene,
+		config:       config,
+		scene:        scene,
+		musicContext: audio.NewContext(44100),
 	}
-	app.sceneDispatcher = scenes.NewDispatcher(app)
+	app.controller = scenes.NewAppController(app)
+
+	app.ChangeBackgroundMusic(assets.IntroMusic)
 	return app
 }
 
@@ -34,7 +45,7 @@ func (self *App) Run() error {
 }
 
 func (self *App) Update() error {
-	self.scene.Update(self.sceneDispatcher)
+	self.scene.Update(self.controller)
 	return nil
 }
 
@@ -47,5 +58,22 @@ func (self *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHei
 }
 
 func (self *App) ChangeScene(scene scenes.Scene) {
+	self.scene.Configure(self.controller)
 	self.scene = scene
+}
+
+func (self *App) ChangeBackgroundMusic(data []byte) {
+	stream, err := mp3.DecodeWithoutResampling(bytes.NewReader(data))
+	if err != nil {
+		panic(err)
+	}
+
+	// Turns the byte stream into a reader that will loop
+	loop := audio.NewInfiniteLoop(stream, stream.Length())
+	self.musicPlayer, err = self.musicContext.NewPlayer(loop)
+	if err != nil {
+		panic(err)
+	}
+
+	self.musicPlayer.Play()
 }

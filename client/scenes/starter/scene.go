@@ -106,7 +106,7 @@ func (self *StarterScene) RenderCursor(screen *ebiten.Image) {
 	}
 }
 
-func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *StarterScene) Update(controller *scenes.AppController) {
 	// Toggle focus when the enter is pressed
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
 		self.isFocused = !self.isFocused
@@ -143,7 +143,9 @@ func (self *StarterScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyEscape) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(arena.NewArenaScene(self.config, self.inputText))
+				controller.ChangeScene(arena.NewArenaScene(self.config, self.inputText))
 			})
 	}
 }
+
+func (self *StarterScene) Configure(controller *scenes.AppController) {}

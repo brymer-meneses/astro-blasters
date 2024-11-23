@@ -1,7 +1,6 @@
 package arena
 
 import (
-	"bytes"
 	"context"
 	"image/color"
 	"log"
@@ -22,7 +21,6 @@ import (
 	"github.com/coder/websocket"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
-	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/yohamta/donburi"
@@ -35,41 +33,6 @@ const (
 	MinimapWidth  = 150
 	MinimapHeight = 150
 )
-
-func createAudioPlayerFromData(audioContext *audio.Context, data []byte) *audio.Player {
-	decodedAudio, err := wav.DecodeWithSampleRate(44100, bytes.NewReader(data))
-	if err != nil {
-		log.Fatalf("Failed to decode audio: %v", err)
-	}
-
-	player, err := audio.NewPlayer(audioContext, decodedAudio)
-	if err != nil {
-		log.Fatalf("Failed to create audio player: %v", err)
-	}
-
-	return player
-}
-
-func setupAudio(audioContext *audio.Context) (*audio.Player, *audio.Player, *audio.Player) {
-	laserPlayer := createAudioPlayerFromData(audioContext, assets.LaserAudio)
-	enterGamePlayer := createAudioPlayerFromData(audioContext, assets.StartAudio)
-	backgroundPlayer := createAudioPlayerFromData(audioContext, assets.BackgroundAudio)
-
-	enterGamePlayer.Play()
-
-	go func() {
-		time.Sleep(2 * time.Second)
-		for {
-			backgroundPlayer.Play()
-			for backgroundPlayer.IsPlaying() {
-				time.Sleep(100 * time.Millisecond)
-			}
-			backgroundPlayer.Rewind()
-		}
-	}()
-
-	return laserPlayer, enterGamePlayer, backgroundPlayer
-}
 
 type ArenaScene struct {
 	connection  *websocket.Conn
@@ -95,9 +58,6 @@ type ArenaScene struct {
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
-	audioContext := audio.NewContext(44100)
-	laserPlayer, enterGamePlayer, backgroundPlayer := setupAudio(audioContext)
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
@@ -136,18 +96,14 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	}
 
 	scene := &ArenaScene{
-		background1:      common.NewBackground(MapWidth, MapHeight),
-		background2:      common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:         response.PlayerId,
-		player:           mainPlayer,
-		simulation:       simulation,
-		connection:       connection,
-		camera:           camera,
-		config:           config,
-		audioContext:     audioContext,
-		laserPlayer:      laserPlayer,
-		backgroundPlayer: backgroundPlayer,
-		enterGamePlayer:  enterGamePlayer,
+		background1: common.NewBackground(MapWidth, MapHeight),
+		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerId:    response.PlayerId,
+		player:      mainPlayer,
+		simulation:  simulation,
+		connection:  connection,
+		camera:      camera,
+		config:      config,
 	}
 
 	go scene.receiveServerUpdates()
@@ -165,7 +121,6 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 
 	self.drawBackground(screen)
 	self.drawEntities(screen)
-	self.drawMinimap(screen)
 
 	// if player is dead (ui only) {
 	// Make the entire screen gray with overlay
@@ -184,7 +139,7 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	// } //add backend part: 5 second countdown before respawn, can't move when dead, etc.
 }
 
-func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
+func (self *ArenaScene) Update(controller *scenes.AppController) {
 	ctx := context.Background()
 	position := component.Position.Get(self.player)
 
@@ -214,10 +169,8 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeySpace) {
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
 		sendMove(types.PlayerStartFireBullet)
-		self.laserPlayer.Rewind()
-		self.laserPlayer.Play()
 	}
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
@@ -227,7 +180,7 @@ func (self *ArenaScene) Update(dispatcher *scenes.Dispatcher) {
 	if ebiten.IsKeyPressed(ebiten.KeyL) {
 		self.once.Do(
 			func() {
-				dispatcher.Dispatch(leaderboard.NewLeaderboardScene(self.config))
+				controller.ChangeScene(leaderboard.NewLeaderboardScene(self.config))
 			})
 	}
 
@@ -393,82 +346,6 @@ func (self *ArenaScene) drawText(screen *ebiten.Image, msg string, fontface text
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-func (self *ArenaScene) drawMinimap(screen *ebiten.Image) {
-	// Create the minimap image
-	minimap := ebiten.NewImage(MinimapWidth, MinimapHeight)
-	minimap.Fill(color.Black)
-
-	// Scale factor to map world coordinates to minimap coordinates
-	scaleX := float64(MinimapWidth) / float64(MapWidth)
-	scaleY := float64(MinimapHeight) / float64(MapHeight)
-
-	// Get the player's position to center the minimap around it
-	playerPos := component.Position.Get(self.simulation.FindCorrespondingPlayer(self.playerId))
-
-	// Calculate offsets to center the player in the minimap
-	offsetX := playerPos.X*scaleX - float64(MinimapWidth)/2
-	offsetY := playerPos.Y*scaleY - float64(MinimapHeight)/2
-
-	spriteScale := 1.0
-
-	// Draw all players on the minimap, with the main player centered
-	query := donburi.NewQuery(filter.Contains(component.Player, component.Position, component.Sprite))
-	for player := range query.Iter(self.simulation.ECS.World) {
-		position := component.Position.Get(player)
-		sprite := component.Sprite.GetValue(player)
-
-		// Calculate the position of each player relative to the centered player
-		minimapX := (position.X * scaleX) - offsetX
-		minimapY := (position.Y * scaleY) - offsetY
-
-		// Check if the ship sprite is available
-		x_0 := (float64(sprite.Bounds().Dx()) / 2)
-		y_0 := (float64(sprite.Bounds().Dy()) / 2)
-
-		// Scale down the ship for the minimap
-		opts := &ebiten.DrawImageOptions{}
-		opts.GeoM.Translate(-x_0, -y_0)
-		opts.GeoM.Rotate(position.Angle)
-
-		opts.GeoM.Scale(spriteScale, spriteScale)
-		opts.GeoM.Translate(minimapX, minimapY)
-		minimap.DrawImage(sprite, opts)
-	}
-
-	// Draw the minimap onto the main screen in the upper-left corner
-	minimapScreenOpts := &ebiten.DrawImageOptions{}
-	minimapScreenOpts.GeoM.Translate(10, 10) // Minimap position on the screen
-	screen.DrawImage(minimap, minimapScreenOpts)
-
-	// Draw a white border around the minimap
-	borderColor := color.RGBA{255, 255, 255, 255} // White color for the border
-	borderSize := 2
-
-	// Top border
-	topBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-	topBorder.Fill(borderColor)
-	screen.DrawImage(topBorder, minimapScreenOpts)
-
-	// Bottom border
-	bottomBorder := ebiten.NewImage(MinimapWidth+2*borderSize, borderSize)
-	bottomBorder.Fill(borderColor)
-	bottomBorderOpts := *minimapScreenOpts
-	bottomBorderOpts.GeoM.Translate(0, float64(MinimapHeight+borderSize))
-	screen.DrawImage(bottomBorder, &bottomBorderOpts)
-
-	// Left border
-	leftBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
-	leftBorder.Fill(borderColor)
-	screen.DrawImage(leftBorder, minimapScreenOpts)
-
-	// Right border
-	rightBorder := ebiten.NewImage(borderSize, MinimapHeight+2*borderSize)
-	rightBorder.Fill(borderColor)
-	rightBorderOpts := *minimapScreenOpts
-	rightBorderOpts.GeoM.Translate(float64(MinimapWidth+borderSize), 0)
-	screen.DrawImage(rightBorder, &rightBorderOpts)
-}
-
 // Receives information from the server and updates the game state accordingly.
 func (self *ArenaScene) receiveServerUpdates() {
 	for {
@@ -508,3 +385,5 @@ func (self *ArenaScene) receiveServerUpdates() {
 		}
 	}
 }
+
+func (self *ArenaScene) Configure(controller *scenes.AppController) {}

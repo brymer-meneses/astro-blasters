@@ -24,6 +24,18 @@ var GreenBulletAnimation [4]SpriteSheet
 
 var BlueExplosion SpriteSheet
 
+//go:embed sfx/laser.wav
+var LaserAudio []byte
+
+//go:embed sfx/start.wav
+var StartAudio []byte
+
+//go:embed sfx/background.wav
+var BackgroundAudio []byte
+
+//go:embed sfx/IntroMusic.mp3
+var IntroMusic []byte
+
 func init() {
 	Background = mustLoadSpriteFromBytes(background, 512, 512)
 	Ships = mustLoadSpriteFromBytes(ships, 8, 8)
@@ -37,6 +49,7 @@ func init() {
 	Munro = mustLoadFontFromBytes(munro)
 
 	miscSprite := mustLoadSpriteFromBytes(miscellaneous, 8, 8)
+
 	for i := range 4 {
 		OrangeBulletAnimation[i] = NewSpriteSheet(
 			miscSprite,
@@ -83,22 +96,6 @@ var iu []byte
 
 //go:embed SpaceShooterAssetPack/Projectiles.png
 var projectile []byte
-
-//go:embed sfx/laser.wav
-var LaserAudio []byte
-
-//go:embed sfx/start.wav
-var StartAudio []byte
-
-//go:embed sfx/background.wav
-var BackgroundAudio []byte
-
-func mustLoadAudioFromBytes(data []byte) []byte {
-	if len(data) == 0 {
-		panic("audio file is empty or not embedded correctly")
-	}
-	return data
-}
 
 func mustLoadSpriteFromBytes(data []byte, width, height int) Sprite {
 	image, _, err := ebitenutil.NewImageFromReader(bytes.NewReader(data))
