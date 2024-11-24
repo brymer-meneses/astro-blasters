@@ -63,12 +63,10 @@ func (self *Server) onCollide(entity *donburi.Entry) {
 	}))
 
 	position := game.GenerateRandomPlayerPosition()
-
 	self.simulation.RespawnPlayer(entity, position)
 
 	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
 		PlayerId: player.Id,
-		Health:   100,
 		Position: position,
 	}))
 }
