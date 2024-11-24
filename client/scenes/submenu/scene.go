@@ -30,15 +30,11 @@ func (self *SubMenuScene) Draw(screen *ebiten.Image) {
 	screen.DrawImage(self.background.Image, nil)
 
 	// Draw the Title box and Title
-	opts1 := &ebiten.DrawImageOptions{}
 	imageWidth := assets.Borders.Image.Bounds().Dx()
-	opts1.GeoM.Scale(25, 7)
-	opts1.GeoM.Translate((float64(self.config.ScreenWidth-imageWidth)/3)+55, 50)
-	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), opts1)
-
 	fontface := text.GoTextFace{Source: assets.MunroNarrow}
 	lineSpacing := 10
 
+	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 25, 7, 0, (float64(self.config.ScreenWidth-imageWidth)/3)+55, 50)
 	self.drawText(screen, "Welcome Cadet!", fontface, 50, 550, 105, lineSpacing)
 
 	// Draw the Instructions box for the controls

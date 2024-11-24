@@ -42,28 +42,13 @@ func (self *StarterScene) Draw(screen *ebiten.Image) {
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 3}), 60, 15, 0, 50, 185)
 	self.drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 60, 15, 0, 50, 185)
 
-	// Text blocks
 	self.drawText(screen, "Before we take off, cadet, what should we call the brave soul leading this mission?", fontface, 27, 530, 245, lineSpacing)
 	self.drawText(screen, "Press 'Enter' to type in your username.", fontface, 27, 530, 280, lineSpacing)
-
-	// Draw Input box for Username
-	// opts0 := &ebiten.DrawImageOptions{}
-	// imageWidth := self.border.Image.Bounds().Dx()
-	// imageHeight := self.border.Image.Bounds().Dx()
-	// opts0.GeoM.Scale(30, 7)
-	// opts0.GeoM.Translate(float64(self.config.ScreenWidth-imageWidth)/3, float64(self.config.ScreenHeight-imageHeight)/3)
-	// screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 3}), opts0)
-
-	// opts1 := &ebiten.DrawImageOptions{}
-	// opts1.GeoM.Scale(30, 7)
-	// opts1.GeoM.Translate(float64(self.config.ScreenWidth-imageWidth)/3, float64(self.config.ScreenHeight-imageHeight)/3)
-	// screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), opts1)
 
 	self.drawText(screen, fmt.Sprintf("> %s", self.inputText), fontface, 30, 530, 330, lineSpacing)
 
 	self.RenderCursor(screen)
 
-	// Draw subtext
 	if self.visible {
 		self.drawText(screen, "Press Esc To Play the Game", fontface, 40, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-250, lineSpacing)
 	}
@@ -77,7 +62,6 @@ func (self *StarterScene) drawTransformedImage(screen *ebiten.Image, image *ebit
 	screen.DrawImage(image, opts)
 }
 
-// Helper function to draw centered text with specified font size
 func (self *StarterScene) drawText(screen *ebiten.Image, msg string, fontface text.GoTextFace, fontSize float64, x, y float64, lineSpacing int) {
 	fontface.Size = fontSize
 	width, height := text.Measure(msg, &fontface, 10)
@@ -89,20 +73,17 @@ func (self *StarterScene) drawText(screen *ebiten.Image, msg string, fontface te
 	text.Draw(screen, msg, &fontface, opts)
 }
 
-// Render the input text and cursor
 func (self *StarterScene) RenderCursor(screen *ebiten.Image) {
-
 	// Render blinking cursor (if visible)
 	if self.cursorVisible {
-		// Cursor placement: calculate X position based on input text length
-		cursorX := 535 + len(self.inputText)*5 // Adjust based on font width
+		cursorX := 535 + len(self.inputText)*5 // Cursor horizontal position
 		cursorY := 350                         // Cursor vertical position
-		cursorImage := ebiten.NewImage(10, 2)  // Create a 2x20 rectangle for the cursor
-		cursorImage.Fill(color.White)          // Set cursor color to white
+		cursorImage := ebiten.NewImage(10, 2)
+		cursorImage.Fill(color.White) // Set cursor color to white
 
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(cursorX), float64(cursorY))
-		screen.DrawImage(cursorImage, op) // Draw the cursor on the screen
+		screen.DrawImage(cursorImage, op)
 	}
 }
 
