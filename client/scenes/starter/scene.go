@@ -129,4 +129,4 @@ func (self *StarterScene) Update(controller *scenes.AppController) {
 	}
 }
 
-func (self *StarterScene) Configure(controller *scenes.AppController) {}
+func (self *StarterScene) Configure(controller *scenes.AppController) error { return nil }

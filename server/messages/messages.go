@@ -60,16 +60,15 @@ type EventPlayerDisconnected struct {
 
 type EventUpdateHealth struct {
 	PlayerId types.PlayerId // The player whose health is being updated
-	Health   float64             // The updated health value of the player
+	Health   float64        // The updated health value of the player
 }
 
 type EventPlayerDied struct {
 	PlayerId types.PlayerId // The player whose health is being updated
-	Position   component.PositionData
+	KilledBy types.PlayerId
 }
 
 type EventPlayerRespawned struct {
-	PlayerId   types.PlayerId
-	Health     float64  
-	Position   component.PositionData
+	PlayerId types.PlayerId
+	Position component.PositionData
 }

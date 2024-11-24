@@ -87,6 +87,7 @@ func (self *MenuScene) Update(controller *scenes.AppController) {
 	}
 }
 
-func (Self *MenuScene) Configure(controller *scenes.AppController) {
-	controller.ChangeBackgroundMusic(assets.IntroMusic)
+func (self *MenuScene) Configure(controller *scenes.AppController) error {
+	controller.ChangeMusic(assets.IntroMusic)
+	return nil
 }

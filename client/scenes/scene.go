@@ -7,12 +7,12 @@ import (
 type Scene interface {
 	Draw(screen *ebiten.Image)
 	Update(controller *AppController)
-	Configure(controller *AppController)
+	Configure(controller *AppController) error
 }
 
 type app interface {
 	ChangeScene(scenes Scene)
-	ChangeBackgroundMusic(data []byte)
+	ChangeMusic(data []byte)
 }
 
 type AppController struct {
@@ -27,6 +27,6 @@ func (self *AppController) ChangeScene(scene Scene) {
 	self.app.ChangeScene(scene)
 }
 
-func (self *AppController) ChangeBackgroundMusic(data []byte) {
-	self.app.ChangeBackgroundMusic(data)
+func (self *AppController) ChangeMusic(data []byte) {
+	self.app.ChangeMusic(data)
 }

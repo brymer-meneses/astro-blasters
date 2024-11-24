@@ -42,29 +42,44 @@ func NewServer() *Server {
 	s.serveMux.HandleFunc("/play/ws", s.ws)
 	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
-	s.simulation = game.NewGameSimulation(
-		func(entity *donburi.Entry) {
-			player := component.Player.Get(entity)
-			player.Health -= game.PlayerDamagePerHit
-			if player.Health <= 0 {
-				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
-					PlayerId: player.Id,
-				}))
-				player.Health = 100
-				component.Position.SetValue(entity, component.PositionData{X: 512, Y: 512, Angle: 0})
-				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
-					PlayerId: player.Id,
-					Health:   100,
-					Position: component.PositionData{X: 512, Y: 512, Angle: 0},
-				}))
-			}
-			s.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
-				PlayerId: player.Id,
-				Health:   player.Health,
-			}))
-		},
-	)
+	s.simulation = game.NewGameSimulation()
+	s.simulation.OnBulletCollide = s.onBulletCollide
 	return s
+}
+
+func (self *Server) onBulletCollide(player *donburi.Entry, bullet *donburi.Entry) {
+	playerData := component.Player.Get(player)
+	playerData.Health -= game.PlayerDamagePerHit
+
+	if playerData.Health > 0 {
+		self.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
+			PlayerId: playerData.Id,
+			Health:   playerData.Health,
+		}))
+	} else if playerData.Health == 0 {
+		bulletData := component.Bullet.Get(bullet)
+		scorer := self.simulation.FindCorrespondingPlayer(bulletData.FiredBy)
+
+		scorerData := component.Player.Get(scorer)
+
+		self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
+			PlayerId: playerData.Id,
+			KilledBy: scorerData.Id,
+		}))
+
+		self.simulation.RegisterPlayerDeath(player, scorer)
+
+		go func() {
+			time.Sleep(5 * time.Second)
+			position := game.GenerateRandomPlayerPosition()
+			self.simulation.RespawnPlayer(player, position)
+
+			self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
+				PlayerId: playerData.Id,
+				Position: position,
+			}))
+		}()
+	}
 }
 
 func (self *Server) Start(port int) error {
@@ -134,7 +149,6 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 				Move:     registerPlayerMove.Move,
 				PlayerId: playerId,
 			}))
-
 		}
 	}
 	return nil
@@ -145,9 +159,11 @@ func isPositionWithinTolerance(expected component.PositionData, got component.Po
 }
 
 func (self *Server) updateState() {
-	for {
+	ticker := time.NewTicker(time.Millisecond * 16) // ~60 FPS
+	defer ticker.Stop()
+
+	for range ticker.C {
 		self.simulation.Update()
-		time.Sleep(time.Millisecond * 16)
 	}
 }
 
@@ -207,11 +223,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, response)
 	}
 
-	position := component.PositionData{
-		X:     512,
-		Y:     512,
-		Angle: 0,
-	}
+	position := game.GenerateRandomPlayerPosition()
 
 	self.players[playerId] = &playerConnection{
 		conn:        connection,

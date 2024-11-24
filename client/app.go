@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
+	"space-shooter/client/scenes/common/failure"
 	"space-shooter/client/scenes/menu"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -55,12 +56,15 @@ func (self *App) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHei
 }
 
 func (self *App) ChangeScene(scene scenes.Scene) {
-	scene.Configure(self.controller)
+	if err := scene.Configure(self.controller); err != nil {
+		self.scene = failure.NewFailureScene(self.config, err)
+		return
+	}
 
 	self.scene = scene
 }
 
-func (self *App) ChangeBackgroundMusic(data []byte) {
+func (self *App) ChangeMusic(data []byte) {
 	if self.musicPlayer != nil && self.musicPlayer.IsPlaying() {
 		self.musicPlayer.Close()
 	}

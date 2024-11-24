@@ -1,10 +1,6 @@
 package game
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/ecs"
-	"github.com/yohamta/donburi/filter"
 	"log"
 	"math"
 	"math/rand"
@@ -12,6 +8,11 @@ import (
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/yohamta/donburi"
+	"github.com/yohamta/donburi/ecs"
+	"github.com/yohamta/donburi/filter"
 )
 
 const (
@@ -26,14 +27,14 @@ const (
 )
 
 type GameSimulation struct {
-	ECS       *ecs.ECS
-	OnCollide func(player *donburi.Entry)
+	ECS             *ecs.ECS
+	OnBulletCollide func(player *donburi.Entry, bullet *donburi.Entry)
 }
 
-func NewGameSimulation(onCollide func(player *donburi.Entry)) *GameSimulation {
+func NewGameSimulation() *GameSimulation {
 	return &GameSimulation{
-		ECS:       ecs.NewECS(donburi.NewWorld()),
-		OnCollide: onCollide,
+		ECS:             ecs.NewECS(donburi.NewWorld()),
+		OnBulletCollide: nil,
 	}
 }
 
@@ -54,28 +55,52 @@ func (self *GameSimulation) Update() {
 	for bullet := range donburi.NewQuery(filter.Contains(component.Bullet)).Iter(self.ECS.World) {
 		futureBulletPosition := component.Position.GetValue(bullet)
 		futureBulletPosition.Forward(-10)
+
 		didCollide := false
+		var collidedPlayer *donburi.Entry
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
-			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
+			playerData := component.Player.Get(player)
+
+			if playerData.IsAlive && component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				didCollide = true
-				self.OnCollide(player)
+				collidedPlayer = player
 			}
 		}
 
-		if didCollide {
-			self.spawnExplosion(&futureBulletPosition)
-			self.ECS.World.Remove(bullet.Entity())
-		} else {
+		if !didCollide {
 			component.Position.SetValue(bullet, futureBulletPosition)
+			continue
 		}
+
+		if self.OnBulletCollide != nil {
+			self.OnBulletCollide(collidedPlayer, bullet)
+		}
+
+		self.spawnExplosion(&futureBulletPosition)
+		self.ECS.World.Remove(bullet.Entity())
 	}
 
 	for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
 		playerData := component.Player.Get(player)
 
 		if playerData.IsFiringBullet {
-			self.fireBullet(player)
+			playerPosition := component.Position.Get(player)
+
+			bullet1 := *playerPosition
+			bullet1.Angle += math.Pi
+			bullet1.X -= 15 * math.Cos(bullet1.Angle)
+			bullet1.Y -= 15 * math.Sin(bullet1.Angle)
+			bullet1.Forward(-40)
+
+			bullet2 := *playerPosition
+			bullet2.Angle += math.Pi
+			bullet2.X += 15 * math.Cos(bullet2.Angle)
+			bullet2.Y += 15 * math.Sin(bullet2.Angle)
+			bullet2.Forward(-40)
+
+			self.fireBullet(player, bullet1)
+			self.fireBullet(player, bullet2)
 		}
 
 		futurePosition := component.Position.GetValue(player)
@@ -100,6 +125,19 @@ func (self *GameSimulation) Update() {
 
 		component.Position.SetValue(player, futurePosition)
 	}
+}
+
+func (self *GameSimulation) RegisterPlayerDeath(victim, killer *donburi.Entry) {
+	killerData := component.Player.Get(killer)
+	killerData.Score += 1
+
+	victimData := component.Player.Get(victim)
+	victimData.Score /= 2
+	victimData.IsFiringBullet = false
+	victimData.IsRotatingClockwise = false
+	victimData.IsMovingForward = false
+	victimData.IsRotatingCounterClockwise = false
+	victimData.IsAlive = false
 }
 
 func (self *GameSimulation) RegisterPlayerMove(playerId types.PlayerId, move types.PlayerMove) {
@@ -132,15 +170,8 @@ func (self *GameSimulation) RegisterPlayerMove(playerId types.PlayerId, move typ
 	}
 }
 
-func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
+func (self *GameSimulation) fireBullet(player *donburi.Entry, bulletPosition component.PositionData) *donburi.Entry {
 	playerData := component.Player.Get(player)
-
-	playerPosition := component.Position.Get(player)
-	playerPosition.Forward(-3)
-
-	bulletPosition := *playerPosition
-	bulletPosition.Angle += math.Pi
-	bulletPosition.Forward(-40)
 
 	entity := self.ECS.World.Create(component.Bullet, component.Sprite, component.Position, component.Expirable)
 	bullet := self.ECS.World.Entry(entity)
@@ -167,42 +198,24 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	return bullet
 }
 
-func (self *GameSimulation) RespawnPlayer(playerId types.PlayerId, newPosition *component.PositionData) *donburi.Entry {
-	// Find the existing player entity
-	player := self.FindCorrespondingPlayer(playerId)
-	if player == nil {
-		log.Printf("Error: Player with ID %d not found, cannot respawn", playerId)
-		return nil
-	}
-
-	// Reset health
+func (self *GameSimulation) RespawnPlayer(player *donburi.Entry, newPosition component.PositionData) {
 	playerData := component.Player.Get(player)
-	playerData.Health = 100 // Reset health to full
-	component.Player.SetValue(player, *playerData)
-
-	// Update position
-	if newPosition != nil {
-		component.Position.SetValue(player, *newPosition)
-	} else {
-		// Use a default spawn position if none is provided
-		defaultPosition := component.PositionData{X: 512, Y: 512, Angle: 0}
-		component.Position.SetValue(player, defaultPosition)
-	}
-
-	log.Printf("Player %d respawned at position %+v with %f health", playerId, component.Position.Get(player), playerData.Health)
-	return player
+	playerData.Health = 100
+	playerData.IsAlive = true
+	component.Position.SetValue(player, newPosition)
 }
 
 func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
 	entity := self.ECS.World.Create(component.Player, component.Position, component.Animation, component.Sprite)
 	player := self.ECS.World.Entry(entity)
 
-	// Create and store player metadata
 	playerData := component.PlayerData{
-		Name:   playerName,
-		Id:     playerId,
-		Health: 100,
+		Name:    playerName,
+		Id:      playerId,
+		Health:  100,
+		IsAlive: true,
 	}
+
 	component.Player.SetValue(player, playerData)
 	component.Position.SetValue(player, *position)
 	component.Sprite.SetValue(player, getShipSprite(playerId))
@@ -247,7 +260,19 @@ func (self *GameSimulation) spawnExplosion(position *component.PositionData) {
 	)
 }
 
+func GenerateRandomPlayerPosition() component.PositionData {
+	return component.PositionData{
+		X:     generateRandomFloat(ShipWidth, MapHeight-ShipHeight),
+		Y:     generateRandomFloat(ShipHeight, MapHeight-ShipHeight),
+		Angle: generateRandomFloat(0, 1),
+	}
+}
+
 func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
 	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
+}
+
+func generateRandomFloat(min, max float64) float64 {
+	return max*rand.Float64() + min
 }
