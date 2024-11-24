@@ -31,21 +31,19 @@ import (
 )
 
 type ArenaScene struct {
-	connection *websocket.Conn
-
-	simulation  *game.GameSimulation
 	background1 *common.Background
 	background2 *common.Background
+	config      *config.ClientConfig //testing only
+	once        sync.Once            //testing only
 
-	config *config.ClientConfig //testing only
-	once   sync.Once            //testing only
-
-	lastFireTime time.Time
-	camera       *Camera
-
+	simulation     *game.GameSimulation
 	shakeDuration  int
 	shakeIntensity float64
+	camera         *Camera
 
+	lastFireTime time.Time
+
+	connection *websocket.Conn
 	player     *donburi.Entry
 	playerName string
 	playerId   types.PlayerId
@@ -86,19 +84,19 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 		return fmt.Errorf("Room is full")
 	}
 
-	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
+	self.connection = connection
+	self.simulation = game.NewGameSimulation(func(player *donburi.Entry) {})
 
 	for _, player := range response.PlayerData {
 		if player.PlayerId == response.PlayerId {
 			// Focus the camera on the player.
-			self.player = simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+			self.player = self.simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+			self.playerId = player.PlayerId
 			self.camera.FocusTarget(player.Position)
 			continue
 		}
-		simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+		self.simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 	}
-
-	self.simulation = simulation
 
 	go self.receiveServerUpdates()
 	return nil
