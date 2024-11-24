@@ -42,31 +42,38 @@ func NewServer() *Server {
 	s.serveMux.HandleFunc("/play/ws", s.ws)
 	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
-	s.simulation = game.NewGameSimulation(s.onCollide)
+	s.simulation = game.NewGameSimulation()
+	s.simulation.OnBulletCollide = s.onBulletCollide
 	return s
 }
 
-func (self *Server) onCollide(entity *donburi.Entry) {
-	player := component.Player.Get(entity)
-	player.Health -= game.PlayerDamagePerHit
+func (self *Server) onBulletCollide(player *donburi.Entry, bullet *donburi.Entry) {
+	playerData := component.Player.Get(player)
+	playerData.Health -= game.PlayerDamagePerHit
 
-	if player.Health > 0 {
+	if playerData.Health > 0 {
 		self.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
-			PlayerId: player.Id,
-			Health:   player.Health,
+			PlayerId: playerData.Id,
+			Health:   playerData.Health,
 		}))
 		return
 	}
 
+	bulletData := component.Bullet.Get(bullet)
+	scorer := self.simulation.FindCorrespondingPlayer(bulletData.FiredBy)
+	self.simulation.RegisterPlayerDeath(player, scorer)
+
+	scorerData := component.Player.Get(scorer)
 	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
-		PlayerId: player.Id,
+		PlayerId: playerData.Id,
+		KilledBy: scorerData.Id,
 	}))
 
 	position := game.GenerateRandomPlayerPosition()
-	self.simulation.RespawnPlayer(entity, position)
+	self.simulation.RespawnPlayer(player, position)
 
 	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
-		PlayerId: player.Id,
+		PlayerId: playerData.Id,
 		Position: position,
 	}))
 }

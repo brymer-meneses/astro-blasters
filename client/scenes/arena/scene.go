@@ -11,7 +11,6 @@ import (
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
 	"space-shooter/client/scenes/common"
-	"space-shooter/client/scenes/leaderboard"
 	"space-shooter/game"
 	"space-shooter/game/component"
 	"space-shooter/game/types"
@@ -85,7 +84,13 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 	}
 
 	self.connection = connection
-	self.simulation = game.NewGameSimulation(func(player *donburi.Entry) {})
+	self.simulation = game.NewGameSimulation()
+
+	self.simulation.OnBulletCollide = func(player, bullet *donburi.Entry) {
+		if component.Player.Get(player).Id == self.playerId {
+			self.startShake(10, 10)
+		}
+	}
 
 	for _, player := range response.PlayerData {
 		if player.PlayerId == response.PlayerId {
@@ -113,6 +118,10 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 
 	self.drawBackground(screen)
 	self.drawEntities(screen)
+
+	if ebiten.IsKeyPressed(ebiten.KeyL) {
+		self.showLeaderboard(screen)
+	}
 }
 
 func (self *ArenaScene) Update(controller *scenes.AppController) {
@@ -147,7 +156,7 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 
 	if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		now := time.Now()
-		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 300*time.Millisecond {
+		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 150*time.Millisecond {
 			sendMove(types.PlayerStartFireBullet)
 			self.lastFireTime = now
 		} else {
@@ -157,14 +166,6 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
-	}
-
-	// for testing only
-	if ebiten.IsKeyPressed(ebiten.KeyL) {
-		self.once.Do(
-			func() {
-				controller.ChangeScene(leaderboard.NewLeaderboardScene(self.config))
-			})
 	}
 
 	self.simulation.Update()
@@ -240,6 +241,12 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 			if player.Id != self.playerId {
 				enemyPosition := component.Position.Get(entity)
 				self.drawPointingArrow(screen, enemyPosition)
+			} else {
+
+				opts := &text.DrawOptions{}
+				opts.GeoM.Translate(5, 5)
+
+				text.Draw(screen, fmt.Sprintf("Score %d", player.Score), &text.GoTextFace{Source: assets.Munro, Size: 20}, opts)
 			}
 
 			if player.IsMovingForward {
@@ -289,22 +296,6 @@ func (self *ArenaScene) drawPointingArrow(screen *ebiten.Image, enemyPosition *c
 	screen.DrawImage(arrow, op)
 }
 
-func (self *ArenaScene) drawTransformedImage(screen *ebiten.Image, tile *ebiten.Image, position *component.PositionData, healthBarWidth float64) {
-	tileWidth := float64(tile.Bounds().Dx())
-
-	x := position.X - healthBarWidth/2 + healthBarWidth/2 - tileWidth/2 - 18 // Center horizontally
-	y := position.Y - 30                                                     // Position above the health bar
-
-	x += self.camera.X
-	y += self.camera.Y
-
-	opts := &ebiten.DrawImageOptions{}
-	opts.GeoM.Scale(4, 1.4)
-	opts.GeoM.Translate(x, y)
-
-	screen.DrawImage(tile, opts)
-}
-
 func (self *ArenaScene) drawHealthBar(screen *ebiten.Image, position *component.PositionData, health float64, maxHealth float64) {
 	if health <= 0 {
 		return
@@ -319,12 +310,26 @@ func (self *ArenaScene) drawHealthBar(screen *ebiten.Image, position *component.
 	barX := (position.X + self.camera.X - healthBarWidth/2) + 5 // Center horizontally
 	barY := position.Y + self.camera.Y - 26                     // Position above ship sprite with 26 offset
 
-	self.drawTransformedImage(screen, assets.Healthbar.GetTile(assets.TileIndex{X: 0, Y: 10}), position, healthBarWidth)
+	tile := assets.Healthbar.GetTile(assets.TileIndex{X: 0, Y: 10})
+	tileWidth := float64(assets.Healthbar.GetTile(assets.TileIndex{X: 0, Y: 10}).Bounds().Dx())
+
+	x := position.X - healthBarWidth/2 + healthBarWidth/2 - tileWidth/2 - 18
+	y := position.Y - 30
+
+	x += self.camera.X
+	y += self.camera.Y
+
+	opts := &ebiten.DrawImageOptions{}
+	opts.GeoM.Scale(4, 1.4)
+	opts.GeoM.Translate(x, y)
+
+	screen.DrawImage(tile, opts)
 
 	// Draw the health bar background
 	healthBarBackground := ebiten.NewImage(int(healthBarWidth), int(healthBarHeight))
 	healthBarBackground.Fill(color.RGBA{128, 128, 128, 255}) // Light Gray for the background
-	opts := &ebiten.DrawImageOptions{}
+
+	opts = &ebiten.DrawImageOptions{}
 	opts.GeoM.Translate(barX, barY)
 	screen.DrawImage(healthBarBackground, opts)
 
@@ -392,6 +397,11 @@ func (self *ArenaScene) receiveServerUpdates() {
 			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
 				continue
 			}
+
+			killed := self.simulation.FindCorrespondingPlayer(playerDied.PlayerId)
+			killer := self.simulation.FindCorrespondingPlayer(playerDied.KilledBy)
+
+			self.simulation.RegisterPlayerDeath(killed, killer)
 			if playerDied.PlayerId == self.playerId {
 				log.Printf("You died")
 			}
@@ -404,4 +414,85 @@ func (self *ArenaScene) receiveServerUpdates() {
 		default:
 		}
 	}
+}
+
+func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
+	// Draw the Title box and Title
+	opts1 := &ebiten.DrawImageOptions{}
+	imageWidth := assets.Borders.Image.Bounds().Dx()
+	opts1.GeoM.Scale(25, 7)
+	opts1.GeoM.Translate((float64(self.config.ScreenWidth-imageWidth)/3)+55, 30)
+	screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 0}), opts1)
+
+	fontface := text.GoTextFace{Source: assets.MunroNarrow}
+	lineSpacing := 10
+
+	drawText(screen, "Leaderboard", fontface, 50, 550, 85, lineSpacing)
+
+	// Draw the leaderboard box for the rankings
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 50, 32, 0, 150, 165, [4]float32{1, 1, 1, 1})
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 50, 32, 0, 150, 165, [4]float32{0.25, 0.25, 0.25, 1})
+
+	// Rank 1
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 290, [4]float32{0.25, 0.25, 0.25, 1})
+	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 290, [4]float32{0.8, 0.8, 0.8, 1})
+	drawText(screen, "1", fontface, 35, 283, 322, lineSpacing)
+	drawText(screen, "Username", fontface, 50, 440, 322, lineSpacing)
+	drawText(screen, "00 Kills", fontface, 50, 740, 322, lineSpacing)
+
+	// Rank 2
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 360, [4]float32{0.25, 0.25, 0.25, 1})
+	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 360, [4]float32{0.9, 0.9, 0.9, 1})
+	drawText(screen, "2", fontface, 35, 285, 392, lineSpacing)
+	drawText(screen, "Username", fontface, 50, 440, 392, lineSpacing)
+	drawText(screen, "00 Kills", fontface, 50, 740, 392, lineSpacing)
+
+	// Rank 3
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 430, [4]float32{0.25, 0.25, 0.25, 1})
+	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 430, [4]float32{0.8, 0.8, 0.8, 1})
+	drawText(screen, "3", fontface, 35, 285, 462, lineSpacing)
+	drawText(screen, "Username", fontface, 50, 440, 462, lineSpacing)
+	drawText(screen, "00 Kills", fontface, 50, 740, 462, lineSpacing)
+
+	// Rank 4
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 500, [4]float32{0.25, 0.25, 0.25, 1})
+	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 500, [4]float32{0.9, 0.9, 0.9, 1})
+	drawText(screen, "4", fontface, 35, 286, 532, lineSpacing)
+	drawText(screen, "Username", fontface, 50, 440, 532, lineSpacing)
+	drawText(screen, "00 Kills", fontface, 50, 740, 532, lineSpacing)
+
+	// Rank 5
+	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 570, [4]float32{0.25, 0.25, 0.25, 1})
+	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 570, [4]float32{0.8, 0.8, 0.8, 1})
+	drawText(screen, "5", fontface, 35, 285, 602, lineSpacing)
+	drawText(screen, "Username", fontface, 50, 440, 602, lineSpacing)
+	drawText(screen, "00 Kills", fontface, 50, 740, 602, lineSpacing)
+}
+
+// Helper function to draw centered text with specified font size
+func drawText(screen *ebiten.Image, msg string, fontface text.GoTextFace, fontSize float64, x, y float64, lineSpacing int) {
+	fontface.Size = fontSize
+	width, height := text.Measure(msg, &fontface, 10)
+
+	opts := &text.DrawOptions{}
+	opts.LineSpacing = float64(lineSpacing)
+	opts.GeoM.Translate(-width/2, -height/2)
+	opts.GeoM.Translate(x, y)
+	text.Draw(screen, msg, &fontface, opts)
+}
+
+func drawTransformedImage(screen *ebiten.Image, image *ebiten.Image, scaleX, scaleY, rotate, translateX, translateY float64, colorScale [4]float32) {
+	opts := &ebiten.DrawImageOptions{}
+
+	// Apply geometric transformations
+	opts.GeoM.Scale(scaleX, scaleY)
+	opts.GeoM.Rotate(rotate) // Rotation in radians
+	opts.GeoM.Translate(translateX, translateY)
+
+	// Apply color transformations using ColorScale
+	if len(colorScale) == 4 { // Ensure proper length (R, G, B, A)
+		opts.ColorScale.Scale(colorScale[0], colorScale[1], colorScale[2], colorScale[3])
+	}
+
+	screen.DrawImage(image, opts)
 }

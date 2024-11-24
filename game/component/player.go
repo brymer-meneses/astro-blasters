@@ -9,6 +9,7 @@ import (
 type PlayerData struct {
 	Name   string
 	Health float64
+	Score  int
 	Id     types.PlayerId
 
 	IsRotatingClockwise        bool
