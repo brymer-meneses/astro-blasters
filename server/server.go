@@ -42,29 +42,35 @@ func NewServer() *Server {
 	s.serveMux.HandleFunc("/play/ws", s.ws)
 	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
-	s.simulation = game.NewGameSimulation(
-		func(entity *donburi.Entry) {
-			player := component.Player.Get(entity)
-			player.Health -= game.PlayerDamagePerHit
-			if player.Health <= 0 {
-				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
-					PlayerId: player.Id,
-				}))
-				player.Health = 100
-				component.Position.SetValue(entity, component.PositionData{X: 512, Y: 512, Angle: 0})
-				s.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
-					PlayerId: player.Id,
-					Health:   100,
-					Position: component.PositionData{X: 512, Y: 512, Angle: 0},
-				}))
-			}
-			s.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
-				PlayerId: player.Id,
-				Health:   player.Health,
-			}))
-		},
-	)
+	s.simulation = game.NewGameSimulation(s.onCollide)
 	return s
+}
+
+func (self *Server) onCollide(entity *donburi.Entry) {
+	player := component.Player.Get(entity)
+	player.Health -= game.PlayerDamagePerHit
+
+	if player.Health > 0 {
+		self.broadcastMessage(rpc.NewBaseMessage(messages.EventUpdateHealth{
+			PlayerId: player.Id,
+			Health:   player.Health,
+		}))
+		return
+	}
+
+	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
+		PlayerId: player.Id,
+	}))
+
+	position := game.GenerateRandomPlayerPosition()
+
+	self.simulation.RespawnPlayer(entity, position)
+
+	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
+		PlayerId: player.Id,
+		Health:   100,
+		Position: position,
+	}))
 }
 
 func (self *Server) Start(port int) error {
@@ -207,11 +213,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, response)
 	}
 
-	position := component.PositionData{
-		X:     512,
-		Y:     512,
-		Angle: 0,
-	}
+	position := game.GenerateRandomPlayerPosition()
 
 	self.players[playerId] = &playerConnection{
 		conn:        connection,

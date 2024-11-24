@@ -484,7 +484,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
 				continue
 			}
-			self.simulation.RespawnPlayer(playerRespawn.PlayerId, &playerRespawn.Position)
+			self.simulation.RespawnPlayer(self.simulation.FindCorrespondingPlayer(playerRespawn.PlayerId), playerRespawn.Position)
 		default:
 		}
 	}

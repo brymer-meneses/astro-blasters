@@ -167,30 +167,10 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry) *donburi.Entry {
 	return bullet
 }
 
-func (self *GameSimulation) RespawnPlayer(playerId types.PlayerId, newPosition *component.PositionData) *donburi.Entry {
-	// Find the existing player entity
-	player := self.FindCorrespondingPlayer(playerId)
-	if player == nil {
-		log.Printf("Error: Player with ID %d not found, cannot respawn", playerId)
-		return nil
-	}
-
-	// Reset health
+func (self *GameSimulation) RespawnPlayer(player *donburi.Entry, newPosition component.PositionData) {
 	playerData := component.Player.Get(player)
-	playerData.Health = 100 // Reset health to full
-	component.Player.SetValue(player, *playerData)
-
-	// Update position
-	if newPosition != nil {
-		component.Position.SetValue(player, *newPosition)
-	} else {
-		// Use a default spawn position if none is provided
-		defaultPosition := component.PositionData{X: 512, Y: 512, Angle: 0}
-		component.Position.SetValue(player, defaultPosition)
-	}
-
-	log.Printf("Player %d respawned at position %+v with %f health", playerId, component.Position.Get(player), playerData.Health)
-	return player
+	playerData.Health = 100
+	component.Position.SetValue(player, newPosition)
 }
 
 func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
@@ -250,4 +230,16 @@ func (self *GameSimulation) spawnExplosion(position *component.PositionData) {
 func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
 	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
+}
+
+func generateRandomFloat(min, max float64) float64 {
+	return max*rand.Float64() + min
+}
+
+func GenerateRandomPlayerPosition() component.PositionData {
+	return component.PositionData{
+		X:     generateRandomFloat(ShipWidth, MapHeight-ShipHeight),
+		Y:     generateRandomFloat(ShipHeight, MapHeight-ShipHeight),
+		Angle: generateRandomFloat(0, 1),
+	}
 }
