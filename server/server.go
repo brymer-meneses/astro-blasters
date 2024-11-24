@@ -30,9 +30,10 @@ type Server struct {
 }
 
 type playerConnection struct {
-	mutex       sync.Mutex
-	conn        *websocket.Conn
-	isConnected bool
+	mutex          sync.Mutex
+	conn           *websocket.Conn
+	isConnected    bool
+	lastBulletFire time.Time
 }
 
 func NewServer() *Server {
@@ -43,8 +44,24 @@ func NewServer() *Server {
 	s.serveMux.Handle("/", http.FileServer(http.Dir("server/static/")))
 
 	s.simulation = game.NewGameSimulation()
+
 	s.simulation.OnBulletCollide = s.onBulletCollide
+	s.simulation.OnBulletFire = s.onBulletFire
 	return s
+}
+
+func (self *Server) onBulletFire(player *donburi.Entry) {
+	playerId := component.Player.Get(player).Id
+	connection := self.players[playerId]
+	now := time.Now()
+
+	if connection.lastBulletFire.IsZero() || now.Sub(connection.lastBulletFire) >= 300*time.Millisecond {
+		connection.lastBulletFire = now
+		self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerFireBullet{
+			PlayerId: playerId,
+		}))
+		self.simulation.RegisterPlayerFire(player)
+	}
 }
 
 func (self *Server) onBulletCollide(player *donburi.Entry, bullet *donburi.Entry) {

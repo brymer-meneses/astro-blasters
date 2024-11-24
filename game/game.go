@@ -29,19 +29,15 @@ const (
 type GameSimulation struct {
 	ECS             *ecs.ECS
 	OnBulletCollide func(player *donburi.Entry, bullet *donburi.Entry)
+	OnBulletFire    func(player *donburi.Entry)
 }
 
 func NewGameSimulation() *GameSimulation {
 	return &GameSimulation{
 		ECS:             ecs.NewECS(donburi.NewWorld()),
 		OnBulletCollide: nil,
+		OnBulletFire:    nil,
 	}
-}
-
-func (self *GameSimulation) UpdatePlayerHealth(playerId types.PlayerId, health float64) {
-	player := self.FindCorrespondingPlayer(playerId)
-	playerData := component.Player.Get(player)
-	playerData.Health = health
 }
 
 func (self *GameSimulation) Update() {
@@ -85,22 +81,9 @@ func (self *GameSimulation) Update() {
 		playerData := component.Player.Get(player)
 
 		if playerData.IsFiringBullet {
-			playerPosition := component.Position.Get(player)
-
-			bullet1 := *playerPosition
-			bullet1.Angle += math.Pi
-			bullet1.X -= 15 * math.Cos(bullet1.Angle)
-			bullet1.Y -= 15 * math.Sin(bullet1.Angle)
-			bullet1.Forward(-40)
-
-			bullet2 := *playerPosition
-			bullet2.Angle += math.Pi
-			bullet2.X += 15 * math.Cos(bullet2.Angle)
-			bullet2.Y += 15 * math.Sin(bullet2.Angle)
-			bullet2.Forward(-40)
-
-			self.fireBullet(player, bullet1)
-			self.fireBullet(player, bullet2)
+			if self.OnBulletFire != nil {
+				self.OnBulletFire(player)
+			}
 		}
 
 		futurePosition := component.Position.GetValue(player)
@@ -125,6 +108,12 @@ func (self *GameSimulation) Update() {
 
 		component.Position.SetValue(player, futurePosition)
 	}
+}
+
+func (self *GameSimulation) UpdatePlayerHealth(playerId types.PlayerId, health float64) {
+	player := self.FindCorrespondingPlayer(playerId)
+	playerData := component.Player.Get(player)
+	playerData.Health = health
 }
 
 func (self *GameSimulation) RegisterPlayerDeath(victim, killer *donburi.Entry) {
@@ -170,7 +159,26 @@ func (self *GameSimulation) RegisterPlayerMove(playerId types.PlayerId, move typ
 	}
 }
 
-func (self *GameSimulation) fireBullet(player *donburi.Entry, bulletPosition component.PositionData) *donburi.Entry {
+func (self *GameSimulation) RegisterPlayerFire(player *donburi.Entry) {
+	playerPosition := component.Position.Get(player)
+
+	bullet1 := *playerPosition
+	bullet1.Angle += math.Pi
+	bullet1.X -= 15 * math.Cos(bullet1.Angle)
+	bullet1.Y -= 15 * math.Sin(bullet1.Angle)
+	bullet1.Forward(-40)
+
+	bullet2 := *playerPosition
+	bullet2.Angle += math.Pi
+	bullet2.X += 15 * math.Cos(bullet2.Angle)
+	bullet2.Y += 15 * math.Sin(bullet2.Angle)
+	bullet2.Forward(-40)
+
+	self.FireBullet(player, bullet1)
+	self.FireBullet(player, bullet2)
+}
+
+func (self *GameSimulation) FireBullet(player *donburi.Entry, bulletPosition component.PositionData) *donburi.Entry {
 	playerData := component.Player.Get(player)
 
 	entity := self.ECS.World.Create(component.Bullet, component.Sprite, component.Position, component.Expirable)
