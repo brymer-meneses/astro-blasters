@@ -110,4 +110,6 @@ func (self *SubMenuScene) Update(controller *scenes.AppController) {
 	}
 }
 
-func (self *SubMenuScene) Configure(controller *scenes.AppController) {}
+func (self *SubMenuScene) Configure(controller *scenes.AppController) error {
+	return nil
+}

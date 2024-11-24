@@ -123,4 +123,4 @@ func (self *LeaderboardScene) Update(controller *scenes.AppController) {
 	}
 }
 
-func (self *LeaderboardScene) Configure(controller *scenes.AppController) {}
+func (self *LeaderboardScene) Configure(controller *scenes.AppController) error { return nil }

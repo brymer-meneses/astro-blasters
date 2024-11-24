@@ -7,7 +7,6 @@ import (
 	"log"
 	"math"
 	"math/rand/v2"
-	"os"
 	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
@@ -32,8 +31,7 @@ import (
 )
 
 type ArenaScene struct {
-	connection   *websocket.Conn
-	errorMessage string
+	connection *websocket.Conn
 
 	simulation  *game.GameSimulation
 	background1 *common.Background
@@ -48,73 +46,62 @@ type ArenaScene struct {
 	shakeDuration  int
 	shakeIntensity float64
 
-	player   *donburi.Entry
-	playerId types.PlayerId
-
-	visible bool
-	ticker  *time.Ticker
+	player     *donburi.Entry
+	playerName string
+	playerId   types.PlayerId
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
+	return &ArenaScene{
+		background1: common.NewBackground(game.MapWidth, game.MapHeight),
+		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerName:  playerName,
+		camera:      NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
+		config:      config,
+	}
+}
+
+func (self *ArenaScene) Configure(controller *scenes.AppController) error {
+	controller.ChangeMusic(assets.BattleMusic)
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	connection, _, err := websocket.Dial(ctx, config.ServerWebsocketURL, nil)
+	connection, _, err := websocket.Dial(ctx, self.config.ServerWebsocketURL, nil)
 
-	scene := &ArenaScene{errorMessage: ""}
 	if err != nil {
-		scene.errorMessage = fmt.Sprintf("Failed to connect to the server at %s", config.ServerWebsocketURL)
-		return scene
+		return fmt.Errorf("Failed to connect to the server at %s", self.config.ServerWebsocketURL)
 	}
 
-	connectionHandshake := rpc.NewBaseMessage(messages.ConnectionHandshake{PlayerName: playerName})
+	connectionHandshake := rpc.NewBaseMessage(messages.ConnectionHandshake{PlayerName: self.playerName})
 	if err := rpc.WriteMessage(ctx, connection, connectionHandshake); err != nil {
-		scene.errorMessage = fmt.Sprintf("Failed to send handshake to the server at %s", config.ServerWebsocketURL)
-		return scene
+		return fmt.Errorf("Failed to send handshake to the server at %s", self.config.ServerWebsocketURL)
 	}
 
 	var response messages.ConnectionHandshakeResponse
 	if err := rpc.ReceiveExpectedMessage(ctx, connection, &response); err != nil {
-		scene.errorMessage = "Error receiving handshake response: " + err.Error()
-		return scene
+		return fmt.Errorf("Error receiving handshake response: " + err.Error())
 	}
 
 	if response.IsRoomFull {
-		scene.errorMessage = "Room is full"
-		return scene
+		return fmt.Errorf("Room is full")
 	}
 
-	camera := NewCamera(0, 0, game.MapHeight, game.MapWidth, config)
 	simulation := game.NewGameSimulation(func(player *donburi.Entry) {})
-
-	var mainPlayer *donburi.Entry
 
 	for _, player := range response.PlayerData {
 		if player.PlayerId == response.PlayerId {
 			// Focus the camera on the player.
-			mainPlayer = simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
-			camera.FocusTarget(player.Position)
+			self.player = simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+			self.camera.FocusTarget(player.Position)
 			continue
 		}
-
 		simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 	}
 
-	scene = &ArenaScene{
-		background1:  common.NewBackground(game.MapWidth, game.MapHeight),
-		background2:  common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerId:     response.PlayerId,
-		player:       mainPlayer,
-		simulation:   simulation,
-		connection:   connection,
-		camera:       camera,
-		config:       config,
-		errorMessage: "",
-		visible:      true,
-		ticker:       time.NewTicker(500 * time.Millisecond),
-	}
+	self.simulation = simulation
 
-	go scene.receiveServerUpdates()
-	return scene
+	go self.receiveServerUpdates()
+	return nil
 }
 
 func (self *ArenaScene) Draw(screen *ebiten.Image) {
@@ -126,45 +113,8 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 		self.shakeDuration -= 1
 	}
 
-	if self.errorMessage != "" {
-		font := text.GoTextFace{Source: assets.Munro, Size: 20}
-
-		opts1 := &ebiten.DrawImageOptions{}
-		opts1.GeoM.Scale(60, 10)
-		opts1.GeoM.Translate(60, 200)
-
-		screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 1, Y: 3}), opts1)
-		screen.DrawImage(assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), opts1)
-
-		// testing how the text apears
-		// self.drawText(screen, "Room is Full", font, 30, float64(self.config.ScreenWidth)/2, 275, 10, [4]float32{255, 255, 255, 255})
-
-		self.drawText(screen, self.errorMessage, font, 30, float64(self.config.ScreenWidth)/2, 275, 10, [4]float32{255, 255, 255, 255})
-
-		if self.visible {
-			self.drawText(screen, "Press C To Close the Game", font, 30, float64(self.config.ScreenWidth)/2, float64(self.config.ScreenHeight)-300, 10, [4]float32{255, 255, 255, 255})
-		}
-		return
-	}
-
 	self.drawBackground(screen)
 	self.drawEntities(screen)
-
-	// if player is dead (ui only) {
-	// Make the entire screen gray with overlay
-	// overlay := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
-	// overlay.Fill(color.RGBA{64, 64, 64, 128})
-
-	// opts := &ebiten.DrawImageOptions{}
-	// screen.DrawImage(overlay, opts)
-
-	// imageWidth := assets.Borders.Image.Bounds().Dx()
-	// self.drawMessage(screen, assets.Messagebar.GetTile(assets.TileIndex{X: 0, Y: 8}), 35, 35, 0, float64(self.config.ScreenWidth-imageWidth)/3-158, float64(self.config.ScreenHeight)/3, [4]float32{1, 1, 1, 1})
-
-	// fontface := text.GoTextFace{Source: assets.MunroNarrow}
-	// lineSpacing := 10
-	// self.drawText(screen, "You have been struck down. Respawn and fight again!", fontface, 35, 560, 380, lineSpacing, [4]float32{0, 0, 0, 1})
-	// } //add backend part: 5 second countdown before respawn, can't move when dead, etc.
 }
 
 func (self *ArenaScene) Update(controller *scenes.AppController) {
@@ -216,20 +166,6 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 		self.once.Do(
 			func() {
 				controller.ChangeScene(leaderboard.NewLeaderboardScene(self.config))
-			})
-	}
-
-	// Toggle visibility every tick
-	select {
-	case <-self.ticker.C:
-		self.visible = !self.visible
-	default:
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyC) {
-		self.once.Do(
-			func() {
-				os.Exit(0)
 			})
 	}
 
@@ -417,24 +353,6 @@ func (self *ArenaScene) drawMessage(screen *ebiten.Image, image *ebiten.Image, s
 	screen.DrawImage(image, opts)
 }
 
-// Helper function to draw centered text with specified font size
-func (self *ArenaScene) drawText(screen *ebiten.Image, msg string, fontface text.GoTextFace, fontSize float64, x, y float64, lineSpacing int, colorScale [4]float32) {
-	fontface.Size = fontSize
-	width, height := text.Measure(msg, &fontface, 10)
-
-	opts := &text.DrawOptions{}
-	opts.LineSpacing = float64(lineSpacing)
-	opts.GeoM.Translate(-width/2, -height/2)
-	opts.GeoM.Translate(x, y)
-
-	// Apply color transformations using ColorScale
-	if len(colorScale) == 4 {
-		opts.ColorScale.Scale(colorScale[0], colorScale[1], colorScale[2], colorScale[3])
-	}
-
-	text.Draw(screen, msg, &fontface, opts)
-}
-
 // Receives information from the server and updates the game state accordingly.
 func (self *ArenaScene) receiveServerUpdates() {
 	for {
@@ -488,8 +406,4 @@ func (self *ArenaScene) receiveServerUpdates() {
 		default:
 		}
 	}
-}
-
-func (self *ArenaScene) Configure(controller *scenes.AppController) {
-	controller.ChangeBackgroundMusic(assets.BattleMusic)
 }
