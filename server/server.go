@@ -56,26 +56,30 @@ func (self *Server) onBulletCollide(player *donburi.Entry, bullet *donburi.Entry
 			PlayerId: playerData.Id,
 			Health:   playerData.Health,
 		}))
-		return
+	} else if playerData.Health == 0 {
+		bulletData := component.Bullet.Get(bullet)
+		scorer := self.simulation.FindCorrespondingPlayer(bulletData.FiredBy)
+
+		scorerData := component.Player.Get(scorer)
+
+		self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
+			PlayerId: playerData.Id,
+			KilledBy: scorerData.Id,
+		}))
+
+		self.simulation.RegisterPlayerDeath(player, scorer)
+
+		go func() {
+			time.Sleep(5 * time.Second)
+			position := game.GenerateRandomPlayerPosition()
+			self.simulation.RespawnPlayer(player, position)
+
+			self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
+				PlayerId: playerData.Id,
+				Position: position,
+			}))
+		}()
 	}
-
-	bulletData := component.Bullet.Get(bullet)
-	scorer := self.simulation.FindCorrespondingPlayer(bulletData.FiredBy)
-	self.simulation.RegisterPlayerDeath(player, scorer)
-
-	scorerData := component.Player.Get(scorer)
-	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerDied{
-		PlayerId: playerData.Id,
-		KilledBy: scorerData.Id,
-	}))
-
-	position := game.GenerateRandomPlayerPosition()
-	self.simulation.RespawnPlayer(player, position)
-
-	self.broadcastMessage(rpc.NewBaseMessage(messages.EventPlayerRespawned{
-		PlayerId: playerData.Id,
-		Position: position,
-	}))
 }
 
 func (self *Server) Start(port int) error {
@@ -145,7 +149,6 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 				Move:     registerPlayerMove.Move,
 				PlayerId: playerId,
 			}))
-
 		}
 	}
 	return nil
@@ -156,9 +159,11 @@ func isPositionWithinTolerance(expected component.PositionData, got component.Po
 }
 
 func (self *Server) updateState() {
-	for {
+	ticker := time.NewTicker(time.Millisecond * 16) // ~60 FPS
+	defer ticker.Stop()
+
+	for range ticker.C {
 		self.simulation.Update()
-		time.Sleep(time.Millisecond * 16)
 	}
 }
 

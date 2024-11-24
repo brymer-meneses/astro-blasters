@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"log"
 	"math"
 	"math/rand/v2"
 	"space-shooter/assets"
@@ -46,6 +45,10 @@ type ArenaScene struct {
 	player     *donburi.Entry
 	playerName string
 	playerId   types.PlayerId
+
+	deathScene *DeathScene
+
+	isAlive bool
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
@@ -54,6 +57,8 @@ func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
 		playerName:  playerName,
 		camera:      NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
+		deathScene:  NewDeathScene(config),
+		isAlive:     true,
 		config:      config,
 	}
 }
@@ -119,15 +124,30 @@ func (self *ArenaScene) Draw(screen *ebiten.Image) {
 	self.drawBackground(screen)
 	self.drawEntities(screen)
 
+	if !self.isAlive {
+		self.deathScene.Draw(screen)
+	}
+
 	if ebiten.IsKeyPressed(ebiten.KeyL) {
 		self.showLeaderboard(screen)
 	}
 }
 
 func (self *ArenaScene) Update(controller *scenes.AppController) {
+	if self.isAlive {
+		self.handleInput()
+	}
+
+	self.simulation.Update()
+
+	position := component.Position.Get(self.player)
+	self.camera.FocusTarget(*position)
+	self.camera.Constrain()
+}
+
+func (self *ArenaScene) handleInput() {
 	ctx := context.Background()
 	position := component.Position.Get(self.player)
-
 	sendMove := func(move types.PlayerMove) {
 		message := rpc.NewBaseMessage(messages.RegisterPlayerMove{Move: move, Position: *position})
 		rpc.WriteMessage(ctx, self.connection, message)
@@ -163,15 +183,9 @@ func (self *ArenaScene) Update(controller *scenes.AppController) {
 			sendMove(types.PlayerStopFireBullet)
 		}
 	}
-
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
 	}
-
-	self.simulation.Update()
-
-	self.camera.FocusTarget(*position)
-	self.camera.Constrain()
 }
 
 func (self *ArenaScene) startShake(duration int, intensity float64) {
@@ -219,6 +233,10 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 		if entity.HasComponent(component.Player) {
 			player := component.Player.Get(entity)
 
+			if !player.IsAlive {
+				continue
+			}
+
 			font := text.GoTextFace{Source: assets.Munro, Size: 20}
 			width, _ := text.Measure(player.Name, &font, 12)
 
@@ -242,10 +260,8 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 				enemyPosition := component.Position.Get(entity)
 				self.drawPointingArrow(screen, enemyPosition)
 			} else {
-
 				opts := &text.DrawOptions{}
 				opts.GeoM.Translate(5, 5)
-
 				text.Draw(screen, fmt.Sprintf("Score %d", player.Score), &text.GoTextFace{Source: assets.Munro, Size: 20}, opts)
 			}
 
@@ -366,7 +382,6 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 		switch message.MessageType {
 		case "UpdatePosition":
-
 			var updatePosition messages.UpdatePosition
 			if err := rpc.DecodeExpectedMessage(message, &updatePosition); err != nil {
 				continue
@@ -403,14 +418,17 @@ func (self *ArenaScene) receiveServerUpdates() {
 
 			self.simulation.RegisterPlayerDeath(killed, killer)
 			if playerDied.PlayerId == self.playerId {
-				log.Printf("You died")
+				self.deathScene = NewDeathScene(self.config)
+				self.isAlive = false
 			}
 		case "EventPlayerRespawned":
 			var playerRespawn messages.EventPlayerRespawned
 			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
 				continue
 			}
+
 			self.simulation.RespawnPlayer(self.simulation.FindCorrespondingPlayer(playerRespawn.PlayerId), playerRespawn.Position)
+			self.isAlive = true
 		default:
 		}
 	}

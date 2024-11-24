@@ -1,10 +1,6 @@
 package game
 
 import (
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/yohamta/donburi"
-	"github.com/yohamta/donburi/ecs"
-	"github.com/yohamta/donburi/filter"
 	"log"
 	"math"
 	"math/rand"
@@ -12,6 +8,11 @@ import (
 	"space-shooter/game/component"
 	"space-shooter/game/types"
 	"time"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/yohamta/donburi"
+	"github.com/yohamta/donburi/ecs"
+	"github.com/yohamta/donburi/filter"
 )
 
 const (
@@ -59,7 +60,9 @@ func (self *GameSimulation) Update() {
 		var collidedPlayer *donburi.Entry
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
-			if component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
+			playerData := component.Player.Get(player)
+
+			if playerData.IsAlive && component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				didCollide = true
 				collidedPlayer = player
 			}
@@ -124,12 +127,17 @@ func (self *GameSimulation) Update() {
 	}
 }
 
-func (self *GameSimulation) RegisterPlayerDeath(killed, killer *donburi.Entry) {
+func (self *GameSimulation) RegisterPlayerDeath(victim, killer *donburi.Entry) {
 	killerData := component.Player.Get(killer)
 	killerData.Score += 1
 
-	killedData := component.Player.Get(killed)
-	killedData.Score /= 2
+	victimData := component.Player.Get(victim)
+	victimData.Score /= 2
+	victimData.IsFiringBullet = false
+	victimData.IsRotatingClockwise = false
+	victimData.IsMovingForward = false
+	victimData.IsRotatingCounterClockwise = false
+	victimData.IsAlive = false
 }
 
 func (self *GameSimulation) RegisterPlayerMove(playerId types.PlayerId, move types.PlayerMove) {
@@ -193,6 +201,7 @@ func (self *GameSimulation) fireBullet(player *donburi.Entry, bulletPosition com
 func (self *GameSimulation) RespawnPlayer(player *donburi.Entry, newPosition component.PositionData) {
 	playerData := component.Player.Get(player)
 	playerData.Health = 100
+	playerData.IsAlive = true
 	component.Position.SetValue(player, newPosition)
 }
 
@@ -201,10 +210,12 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 	player := self.ECS.World.Entry(entity)
 
 	playerData := component.PlayerData{
-		Name:   playerName,
-		Id:     playerId,
-		Health: 100,
+		Name:    playerName,
+		Id:      playerId,
+		Health:  100,
+		IsAlive: true,
 	}
+
 	component.Player.SetValue(player, playerData)
 	component.Position.SetValue(player, *position)
 	component.Sprite.SetValue(player, getShipSprite(playerId))
