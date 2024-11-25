@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"image/color"
+	"log"
 	"math"
 	"math/rand/v2"
+	"sort"
 	"space-shooter/assets"
 	"space-shooter/client/config"
 	"space-shooter/client/scenes"
@@ -28,6 +30,11 @@ import (
 	"github.com/yohamta/donburi/filter"
 )
 
+type LeaderboardEntry struct {
+	Username string
+	Score    int
+}
+
 type ArenaScene struct {
 	background1 *common.Background
 	background2 *common.Background
@@ -49,17 +56,21 @@ type ArenaScene struct {
 	deathScene *DeathScene
 
 	isAlive bool
+
+	leaderboardData []LeaderboardEntry
+	scrollOffset    int
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	return &ArenaScene{
-		background1: common.NewBackground(game.MapWidth, game.MapHeight),
-		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerName:  playerName,
-		camera:      NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
-		deathScene:  NewDeathScene(config),
-		isAlive:     true,
-		config:      config,
+		background1:     common.NewBackground(game.MapWidth, game.MapHeight),
+		background2:     common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerName:      playerName,
+		camera:          NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
+		deathScene:      NewDeathScene(config),
+		isAlive:         true,
+		config:          config,
+		leaderboardData: []LeaderboardEntry{},
 	}
 }
 
@@ -434,7 +445,52 @@ func (self *ArenaScene) receiveServerUpdates() {
 	}
 }
 
+var leaderboardScrollOffset float64 = 0 // Global or struct-level variable
+
+func (self *ArenaScene) scores(screen *ebiten.Image, playerData []component.PlayerData) {
+	leaderboardEntries := make([]LeaderboardEntry, len(playerData))
+	query := donburi.NewQuery(filter.Contains(component.Player))
+	for entity := range query.Iter(self.simulation.ECS.World) {
+
+		if entity.HasComponent(component.Player) {
+			player := component.Player.Get(entity)
+
+			for i, player := range playerData {
+				leaderboardEntries[i] = LeaderboardEntry{
+					Username: player.Name,
+					Score:    player.Score,
+				}
+			}
+
+			log.Print(leaderboardEntries)
+			log.Print(player.Name, " ", player.Score)
+		}
+	}
+}
+
 func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
+	self.scores(screen, []component.PlayerData{})
+
+	// Input handling for mouse scroll
+	_, wheelY := ebiten.Wheel()            // Get the mouse scroll input
+	leaderboardScrollOffset -= wheelY * 10 // Adjust offset based on scroll direction and speed
+	visibleRows := 5
+	startY := 290
+
+	// Clamp the scroll offset to prevent out-of-bounds scrolling
+	maxOffset := float64(len(self.playerName)*70 - self.config.ScreenHeight/2)
+	if leaderboardScrollOffset < 0 {
+		leaderboardScrollOffset = 0
+	}
+	if leaderboardScrollOffset > maxOffset {
+		leaderboardScrollOffset = maxOffset
+	}
+
+	// Sort LeaderboardData
+	sort.SliceStable(self.leaderboardData, func(i, j int) bool {
+		return self.leaderboardData[i].Score > self.leaderboardData[j].Score
+	})
+
 	// Draw the Title box and Title
 	opts1 := &ebiten.DrawImageOptions{}
 	imageWidth := assets.Borders.Image.Bounds().Dx()
@@ -451,40 +507,28 @@ func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
 	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 50, 32, 0, 150, 165, [4]float32{1, 1, 1, 1})
 	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 50, 32, 0, 150, 165, [4]float32{0.25, 0.25, 0.25, 1})
 
-	// Rank 1
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 290, [4]float32{0.25, 0.25, 0.25, 1})
-	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 290, [4]float32{0.8, 0.8, 0.8, 1})
-	drawText(screen, "1", fontface, 35, 283, 322, lineSpacing)
-	drawText(screen, "Username", fontface, 50, 440, 322, lineSpacing)
-	drawText(screen, "00 Kills", fontface, 50, 740, 322, lineSpacing)
+	// // Iterate and render leaderboard entries
+	for i, entry := range self.leaderboardData {
+		y := float64(startY) + float64(i*70) - leaderboardScrollOffset
 
-	// Rank 2
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 360, [4]float32{0.25, 0.25, 0.25, 1})
-	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 360, [4]float32{0.9, 0.9, 0.9, 1})
-	drawText(screen, "2", fontface, 35, 285, 392, lineSpacing)
-	drawText(screen, "Username", fontface, 50, 440, 392, lineSpacing)
-	drawText(screen, "00 Kills", fontface, 50, 740, 392, lineSpacing)
+		if y < 150 || y > float64(self.config.ScreenHeight)-50 {
+			continue
+		}
 
-	// Rank 3
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 430, [4]float32{0.25, 0.25, 0.25, 1})
-	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 430, [4]float32{0.8, 0.8, 0.8, 1})
-	drawText(screen, "3", fontface, 35, 285, 462, lineSpacing)
-	drawText(screen, "Username", fontface, 50, 440, 462, lineSpacing)
-	drawText(screen, "00 Kills", fontface, 50, 740, 462, lineSpacing)
+		drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, float64(y), [4]float32{0.25, 0.25, 0.25, 1})
+		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: (i % 2) + 7, Y: 0}), 7, 8, 0, 255, float64(y), [4]float32{0.8, 0.8, 0.8, 1})
+		drawText(screen, fmt.Sprintf("%d", i+1), fontface, 35, 283, float64(y+32), lineSpacing)
+		drawText(screen, entry.Username, fontface, 50, 440, float64(y+32), lineSpacing)
+		drawText(screen, fmt.Sprintf("%d", entry.Score), fontface, 50, 740, float64(y+32), lineSpacing)
+	}
 
-	// Rank 4
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 500, [4]float32{0.25, 0.25, 0.25, 1})
-	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 500, [4]float32{0.9, 0.9, 0.9, 1})
-	drawText(screen, "4", fontface, 35, 286, 532, lineSpacing)
-	drawText(screen, "Username", fontface, 50, 440, 532, lineSpacing)
-	drawText(screen, "00 Kills", fontface, 50, 740, 532, lineSpacing)
-
-	// Rank 5
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, 570, [4]float32{0.25, 0.25, 0.25, 1})
-	drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 570, [4]float32{0.8, 0.8, 0.8, 1})
-	drawText(screen, "5", fontface, 35, 285, 602, lineSpacing)
-	drawText(screen, "Username", fontface, 50, 440, 602, lineSpacing)
-	drawText(screen, "00 Kills", fontface, 50, 740, 602, lineSpacing)
+	// Scroll indicators
+	if self.scrollOffset > 0 {
+		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 250, [4]float32{1, 1, 1, 1})
+	}
+	if self.scrollOffset+visibleRows < len(self.leaderboardData) {
+		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 650, [4]float32{1, 1, 1, 1})
+	}
 }
 
 // Helper function to draw centered text with specified font size
