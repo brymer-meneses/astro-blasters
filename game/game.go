@@ -125,7 +125,7 @@ func (self *GameSimulation) RegisterPlayerDisconnection(player *donburi.Entry) {
 
 func (self *GameSimulation) RegisterPlayerDeath(victim, killer *donburi.Entry) {
 	killerData := component.Player.Get(killer)
-	killerData.Score += 1
+	killerData.Score += 10
 
 	victimData := component.Player.Get(victim)
 	victimData.Score /= 2
