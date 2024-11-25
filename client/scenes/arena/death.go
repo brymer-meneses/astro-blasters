@@ -55,7 +55,7 @@ func (self *DeathScene) Draw(screen *ebiten.Image) {
 
 	{
 		font := text.GoTextFace{Source: assets.Munro, Size: 50}
-		message := "You will be respawned"
+		message := "you will be respawned"
 		width, height := text.Measure(message, &font, 12)
 
 		opts := &text.DrawOptions{}

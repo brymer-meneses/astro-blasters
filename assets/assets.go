@@ -32,14 +32,14 @@ var BlueExplosion SpriteSheet
 //go:embed sfx/laser.wav
 var LaserAudio []byte
 
-//go:embed sfx/start.wav
-var StartAudio []byte
-
 //go:embed sfx/BattleMusic.mp3
 var BattleMusic []byte
 
 //go:embed sfx/IntroMusic.mp3
 var IntroMusic []byte
+
+//go:embed sfx/hit.wav
+var Hit []byte
 
 func init() {
 	projectileImage := mustLoadImageFromBytes(projectile)

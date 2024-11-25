@@ -13,6 +13,7 @@ type Scene interface {
 type app interface {
 	ChangeScene(scenes Scene)
 	ChangeMusic(data []byte)
+	PlaySfx(data []byte)
 }
 
 type AppController struct {
@@ -29,4 +30,8 @@ func (self *AppController) ChangeScene(scene Scene) {
 
 func (self *AppController) ChangeMusic(data []byte) {
 	self.app.ChangeMusic(data)
+}
+
+func (self *AppController) PlaySfx(data []byte) {
+	self.app.PlaySfx(data)
 }

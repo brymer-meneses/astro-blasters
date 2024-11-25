@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/audio/mp3"
+	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 )
 
 type App struct {
@@ -18,15 +19,15 @@ type App struct {
 	controller *scenes.AppController
 	scene      scenes.Scene
 
-	musicContext *audio.Context
-	musicPlayer  *audio.Player
-	audioStream  *audio.Player
+	player *audio.Player
+
+	audioContext *audio.Context
 }
 
 func NewApp(config *config.ClientConfig) *App {
 	app := &App{
 		config:       config,
-		musicContext: audio.NewContext(44100),
+		audioContext: audio.NewContext(44100),
 	}
 
 	app.controller = scenes.NewAppController(app)
@@ -65,8 +66,8 @@ func (self *App) ChangeScene(scene scenes.Scene) {
 }
 
 func (self *App) ChangeMusic(data []byte) {
-	if self.musicPlayer != nil && self.musicPlayer.IsPlaying() {
-		self.musicPlayer.Close()
+	if self.player != nil && self.player.IsPlaying() {
+		self.player.Close()
 	}
 
 	stream, err := mp3.DecodeWithoutResampling(bytes.NewReader(data))
@@ -76,10 +77,19 @@ func (self *App) ChangeMusic(data []byte) {
 
 	// Turns the byte stream into a reader that will loop
 	loop := audio.NewInfiniteLoop(stream, stream.Length())
-	self.musicPlayer, err = self.musicContext.NewPlayer(loop)
+	self.player, err = self.audioContext.NewPlayer(loop)
 	if err != nil {
 		panic(err)
 	}
 
-	self.musicPlayer.Play()
+	self.player.Play()
+}
+
+func (self *App) PlaySfx(data []byte) {
+	stream, err := wav.DecodeWithoutResampling(bytes.NewReader(data))
+	if err != nil {
+		panic(err)
+	}
+	player, err := self.audioContext.NewPlayer(stream)
+	player.Play()
 }

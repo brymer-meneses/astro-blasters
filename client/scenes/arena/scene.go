@@ -97,6 +97,7 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 	self.simulation.OnBulletCollide = func(player, bullet *donburi.Entry) {
 		if component.Player.Get(player).Id == self.playerId {
 			self.startShake(10, 10)
+			controller.PlaySfx(assets.Hit)
 		}
 	}
 
@@ -111,7 +112,7 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 		self.simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
 	}
 
-	go self.receiveServerUpdates()
+	go self.receiveServerUpdates(controller)
 	return nil
 }
 
@@ -370,7 +371,7 @@ func (self *ArenaScene) drawMessage(screen *ebiten.Image, image *ebiten.Image, s
 }
 
 // Receives information from the server and updates the game state accordingly.
-func (self *ArenaScene) receiveServerUpdates() {
+func (self *ArenaScene) receiveServerUpdates(controller *scenes.AppController) {
 	for {
 		var message rpc.BaseMessage
 		if err := rpc.ReceiveMessage(context.Background(), self.connection, &message); err != nil {
@@ -424,6 +425,7 @@ func (self *ArenaScene) receiveServerUpdates() {
 				continue
 			}
 			self.simulation.RegisterPlayerFire(self.simulation.FindCorrespondingPlayer(fireBullet.PlayerId))
+			controller.PlaySfx(assets.LaserAudio)
 		case "EventPlayerRespawned":
 			var playerRespawn messages.EventPlayerRespawned
 			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
