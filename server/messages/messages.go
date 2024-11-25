@@ -16,8 +16,6 @@ type ConnectionHandshake struct {
 }
 
 type ConnectionHandshakeResponse struct {
-	IsRoomFull bool
-
 	PlayerId   types.PlayerId
 	PlayerData []PlayerData
 }

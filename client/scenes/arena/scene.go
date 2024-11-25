@@ -87,10 +87,6 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 		return fmt.Errorf("Error receiving handshake response: " + err.Error())
 	}
 
-	if response.IsRoomFull {
-		return fmt.Errorf("Room is full")
-	}
-
 	self.connection = connection
 	self.simulation = game.NewGameSimulation()
 
@@ -231,7 +227,7 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 		if entity.HasComponent(component.Player) {
 			player := component.Player.Get(entity)
 
-			if !player.IsAlive {
+			if !player.IsAlive || !player.IsConnected {
 				continue
 			}
 
@@ -388,51 +384,58 @@ func (self *ArenaScene) receiveServerUpdates(controller *scenes.AppController) {
 				component.Position.SetValue(player, updatePosition.Position)
 			}
 		case "EventPlayerConnected":
-			var eventPlayerConnected messages.EventPlayerConnected
-			if err := rpc.DecodeExpectedMessage(message, &eventPlayerConnected); err != nil {
+			var event messages.EventPlayerConnected
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
-			self.simulation.SpawnPlayer(eventPlayerConnected.PlayerId, &eventPlayerConnected.Position, eventPlayerConnected.PlayerName)
+			self.simulation.SpawnPlayer(event.PlayerId, &event.Position, event.PlayerName)
+		case "EventPlayerDisconnected":
+			var event messages.EventPlayerDisconnected
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
+				continue
+			}
+			player := self.simulation.FindCorrespondingPlayer(event.PlayerId)
+			self.simulation.RegisterPlayerDisconnection(player)
 		case "EventPlayerMove":
-			var eventPlayerMove messages.EventPlayerMove
-			if err := rpc.DecodeExpectedMessage(message, &eventPlayerMove); err != nil {
+			var event messages.EventPlayerMove
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
-			self.simulation.RegisterPlayerMove(eventPlayerMove.PlayerId, eventPlayerMove.Move)
+			self.simulation.RegisterPlayerMove(event.PlayerId, event.Move)
 		case "EventUpdateHealth":
-			var updateHealth messages.EventUpdateHealth
-			if err := rpc.DecodeExpectedMessage(message, &updateHealth); err != nil {
+			var event messages.EventUpdateHealth
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
-			self.simulation.UpdatePlayerHealth(updateHealth.PlayerId, updateHealth.Health)
+			self.simulation.UpdatePlayerHealth(event.PlayerId, event.Health)
 		case "EventPlayerDied":
-			var playerDied messages.EventPlayerDied
-			if err := rpc.DecodeExpectedMessage(message, &playerDied); err != nil {
+			var event messages.EventPlayerDied
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
 
-			killed := self.simulation.FindCorrespondingPlayer(playerDied.PlayerId)
-			killer := self.simulation.FindCorrespondingPlayer(playerDied.KilledBy)
+			killed := self.simulation.FindCorrespondingPlayer(event.PlayerId)
+			killer := self.simulation.FindCorrespondingPlayer(event.KilledBy)
 
 			self.simulation.RegisterPlayerDeath(killed, killer)
-			if playerDied.PlayerId == self.playerId {
+			if event.PlayerId == self.playerId {
 				self.deathScene = NewDeathScene(self.config)
 				self.isAlive = false
 			}
 		case "EventPlayerFireBullet":
-			var fireBullet messages.EventPlayerFireBullet
-			if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
+			var event messages.EventPlayerFireBullet
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
-			self.simulation.RegisterPlayerFire(self.simulation.FindCorrespondingPlayer(fireBullet.PlayerId))
+			self.simulation.RegisterPlayerFire(self.simulation.FindCorrespondingPlayer(event.PlayerId))
 			controller.PlaySfx(assets.LaserAudio)
 		case "EventPlayerRespawned":
-			var playerRespawn messages.EventPlayerRespawned
-			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
+			var event messages.EventPlayerRespawned
+			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
 
-			self.simulation.RespawnPlayer(self.simulation.FindCorrespondingPlayer(playerRespawn.PlayerId), playerRespawn.Position)
+			self.simulation.RespawnPlayer(self.simulation.FindCorrespondingPlayer(event.PlayerId), event.Position)
 			self.isAlive = true
 		default:
 		}

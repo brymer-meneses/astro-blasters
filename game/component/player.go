@@ -7,11 +7,13 @@ import (
 )
 
 type PlayerData struct {
-	Name    string
-	Health  float64
-	Score   int
-	Id      types.PlayerId
-	IsAlive bool
+	Name   string
+	Health float64
+	Score  int
+	Id     types.PlayerId
+
+	IsAlive     bool
+	IsConnected bool
 
 	IsRotatingClockwise        bool
 	IsRotatingCounterClockwise bool

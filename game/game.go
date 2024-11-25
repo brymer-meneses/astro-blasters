@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -57,8 +58,9 @@ func (self *GameSimulation) Update() {
 
 		for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.ECS.World) {
 			playerData := component.Player.Get(player)
+			isDamageable := playerData.IsAlive && playerData.IsConnected
 
-			if playerData.IsAlive && component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
+			if isDamageable && component.Position.Get(player).IntersectsWith(&futureBulletPosition, 20) {
 				didCollide = true
 				collidedPlayer = player
 			}
@@ -114,6 +116,11 @@ func (self *GameSimulation) UpdatePlayerHealth(playerId types.PlayerId, health f
 	player := self.FindCorrespondingPlayer(playerId)
 	playerData := component.Player.Get(player)
 	playerData.Health = health
+}
+
+func (self *GameSimulation) RegisterPlayerDisconnection(player *donburi.Entry) {
+	playerData := component.Player.Get(player)
+	playerData.IsConnected = false
 }
 
 func (self *GameSimulation) RegisterPlayerDeath(victim, killer *donburi.Entry) {
@@ -218,10 +225,11 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 	player := self.ECS.World.Entry(entity)
 
 	playerData := component.PlayerData{
-		Name:    playerName,
-		Id:      playerId,
-		Health:  100,
-		IsAlive: true,
+		Name:        playerName,
+		Id:          playerId,
+		Health:      100,
+		IsAlive:     true,
+		IsConnected: true,
 	}
 
 	component.Player.SetValue(player, playerData)
@@ -278,7 +286,7 @@ func GenerateRandomPlayerPosition() component.PositionData {
 
 func getShipSprite(playerId types.PlayerId) *ebiten.Image {
 	i := int(playerId)
-	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i})
+	return assets.Ships.GetTile(assets.TileIndex{X: 1, Y: i % 5})
 }
 
 func generateRandomFloat(min, max float64) float64 {

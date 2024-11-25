@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -121,16 +120,19 @@ func (self *Server) handleConnection(connection *websocket.Conn) error {
 	ctx := context.Background()
 	// Register the connected player.
 	playerId, err := self.establishConnection(ctx, connection)
-
-	defer func() {
-		connection.CloseNow()
-		self.players[playerId].isConnected = false
-		log.Println("Connection ended")
-	}()
-
 	if err != nil {
 		return err
 	}
+
+	defer func() {
+		connection.CloseNow()
+		player := self.simulation.FindCorrespondingPlayer(playerId)
+		self.simulation.RegisterPlayerDisconnection(player)
+		self.players[playerId].isConnected = false
+		self.broadcastMessageExcept(playerId, rpc.NewBaseMessage(messages.EventPlayerDisconnected{
+			PlayerId: playerId,
+		}))
+	}()
 
 	for {
 		var message rpc.BaseMessage
@@ -204,14 +206,13 @@ func (self *Server) sendMessage(playerId types.PlayerId, playerConn *playerConne
 }
 
 func (self *Server) broadcastMessage(message rpc.BaseMessage) {
-	// For each playerid that does not match the sender, send the message.
 	for playerId, playerConn := range self.players {
 		go self.sendMessage(playerId, playerConn, message)
 	}
 }
 
+// For each playerid that does not match the sender, send the message.
 func (self *Server) broadcastMessageExcept(except types.PlayerId, message rpc.BaseMessage) {
-	// For each playerid that does not match the sender, send the message.
 	for playerId, playerConn := range self.players {
 		if except == playerId {
 			continue
@@ -220,12 +221,8 @@ func (self *Server) broadcastMessageExcept(except types.PlayerId, message rpc.Ba
 	}
 }
 
-func (self *Server) getAvailablePlayerId() (types.PlayerId, error) {
-	connectedPlayers := len(self.players)
-	if connectedPlayers == 5 {
-		return 0, errors.New("Cannot have more than 5 players")
-	}
-	return types.PlayerId(connectedPlayers), nil
+func (self *Server) getAvailablePlayerId() types.PlayerId {
+	return types.PlayerId(len(self.players))
 }
 
 func (self *Server) establishConnection(ctx context.Context, connection *websocket.Conn) (types.PlayerId, error) {
@@ -234,12 +231,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		return types.InvalidPlayerId, nil
 	}
 
-	playerId, err := self.getAvailablePlayerId()
-	if err != nil {
-		response := rpc.NewBaseMessage(messages.ConnectionHandshakeResponse{IsRoomFull: true})
-		return types.InvalidPlayerId, rpc.WriteMessage(ctx, connection, response)
-	}
-
+	playerId := self.getAvailablePlayerId()
 	position := game.GenerateRandomPlayerPosition()
 
 	self.players[playerId] = &playerConnection{
@@ -250,13 +242,12 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 	self.simulation.SpawnPlayer(playerId, &position, connectionHandshake.PlayerName)
 
 	playerData := self.getPlayerData()
-	err = rpc.WriteMessage(
+	err := rpc.WriteMessage(
 		ctx,
 		connection,
 		rpc.NewBaseMessage(messages.ConnectionHandshakeResponse{
 			PlayerId:   playerId,
 			PlayerData: playerData,
-			IsRoomFull: false,
 		}),
 	)
 
@@ -275,19 +266,23 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 }
 
 func (self *Server) getPlayerData() []messages.PlayerData {
-	// Get the position data of each player
-	enemyData := make([]messages.PlayerData, len(self.players))
+	enemyData := []messages.PlayerData{}
 	query := donburi.NewQuery(filter.Contains(component.Player, component.Position))
-	i := 0
 
 	for player := range query.Iter(self.simulation.ECS.World) {
 		data := component.Player.Get(player)
-		enemyData[i] = messages.PlayerData{
-			PlayerId:   data.Id,
-			PlayerName: data.Name,
-			Position:   *component.Position.Get(player),
+
+		if !data.IsConnected {
+			continue
 		}
-		i++
+
+		enemyData = append(enemyData,
+			messages.PlayerData{
+				PlayerId:   data.Id,
+				PlayerName: data.Name,
+				Position:   *component.Position.Get(player),
+			},
+		)
 	}
 	return enemyData
 }
