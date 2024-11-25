@@ -1,7 +1,6 @@
 package game
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -20,8 +19,11 @@ const (
 	PlayerDamagePerHit  = 5
 	PlayerMovementSpeed = 5
 	PlayerRotationSpeed = 5
-	MapWidth            = 4096
-	MapHeight           = 4096
+
+	BulletSpeed = 20
+
+	MapWidth  = 4096
+	MapHeight = 4096
 
 	ShipWidth  = 32
 	ShipHeight = 32
@@ -36,8 +38,8 @@ type GameSimulation struct {
 func NewGameSimulation() *GameSimulation {
 	return &GameSimulation{
 		ECS:             ecs.NewECS(donburi.NewWorld()),
-		OnBulletCollide: nil,
-		OnBulletFire:    nil,
+		OnBulletCollide: func(player *donburi.Entry, bullet *donburi.Entry) {},
+		OnBulletFire:    func(player *donburi.Entry) {},
 	}
 }
 
@@ -51,7 +53,7 @@ func (self *GameSimulation) Update() {
 
 	for bullet := range donburi.NewQuery(filter.Contains(component.Bullet)).Iter(self.ECS.World) {
 		futureBulletPosition := component.Position.GetValue(bullet)
-		futureBulletPosition.Forward(-10)
+		futureBulletPosition.Forward(-BulletSpeed)
 
 		didCollide := false
 		var collidedPlayer *donburi.Entry
@@ -83,9 +85,7 @@ func (self *GameSimulation) Update() {
 		playerData := component.Player.Get(player)
 
 		if playerData.IsFiringBullet {
-			if self.OnBulletFire != nil {
-				self.OnBulletFire(player)
-			}
+			self.OnBulletFire(player)
 		}
 
 		futurePosition := component.Position.GetValue(player)
@@ -278,8 +278,8 @@ func (self *GameSimulation) spawnExplosion(position *component.PositionData) {
 
 func GenerateRandomPlayerPosition() component.PositionData {
 	return component.PositionData{
-		X:     generateRandomFloat(ShipWidth, MapHeight-ShipHeight),
-		Y:     generateRandomFloat(ShipHeight, MapHeight-ShipHeight),
+		X:     generateRandomFloat(ShipWidth, 0.80*MapWidth),
+		Y:     generateRandomFloat(ShipHeight, 0.80*MapHeight),
 		Angle: generateRandomFloat(0, 1),
 	}
 }

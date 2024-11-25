@@ -16,7 +16,6 @@ import (
 	"space-shooter/game/types"
 	"space-shooter/rpc"
 	"space-shooter/server/messages"
-	"sync"
 	"time"
 
 	dmath "github.com/yohamta/donburi/features/math"
@@ -32,8 +31,7 @@ import (
 type ArenaScene struct {
 	background1 *common.Background
 	background2 *common.Background
-	config      *config.ClientConfig //testing only
-	once        sync.Once            //testing only
+	config      *config.ClientConfig
 
 	simulation     *game.GameSimulation
 	shakeDuration  int
@@ -93,8 +91,8 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 	self.simulation.OnBulletCollide = func(player, bullet *donburi.Entry) {
 		if component.Player.Get(player).Id == self.playerId {
 			self.startShake(10, 10)
-			controller.PlaySfx(assets.Hit)
 		}
+		controller.PlaySfx(assets.Hit)
 	}
 
 	for _, player := range response.PlayerData {
