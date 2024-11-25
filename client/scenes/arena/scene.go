@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"image/color"
-	"log"
 	"math"
 	"math/rand/v2"
 	"sort"
@@ -30,11 +29,6 @@ import (
 	"github.com/yohamta/donburi/filter"
 )
 
-type LeaderboardEntry struct {
-	Username string
-	Score    int
-}
-
 type ArenaScene struct {
 	background1 *common.Background
 	background2 *common.Background
@@ -57,20 +51,18 @@ type ArenaScene struct {
 
 	isAlive bool
 
-	leaderboardData []LeaderboardEntry
-	scrollOffset    int
+	scrollOffset int
 }
 
 func NewArenaScene(config *config.ClientConfig, playerName string) *ArenaScene {
 	return &ArenaScene{
-		background1:     common.NewBackground(game.MapWidth, game.MapHeight),
-		background2:     common.NewBackground(config.ScreenWidth, config.ScreenHeight),
-		playerName:      playerName,
-		camera:          NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
-		deathScene:      NewDeathScene(config),
-		isAlive:         true,
-		config:          config,
-		leaderboardData: []LeaderboardEntry{},
+		background1: common.NewBackground(game.MapWidth, game.MapHeight),
+		background2: common.NewBackground(config.ScreenWidth, config.ScreenHeight),
+		playerName:  playerName,
+		camera:      NewCamera(0, 0, game.MapHeight, game.MapWidth, config),
+		deathScene:  NewDeathScene(config),
+		isAlive:     true,
+		config:      config,
 	}
 }
 
@@ -445,51 +437,35 @@ func (self *ArenaScene) receiveServerUpdates() {
 	}
 }
 
-var leaderboardScrollOffset float64 = 0 // Global or struct-level variable
+type leaderboardEntry struct {
+	Name  string
+	Score int
+}
 
-func (self *ArenaScene) scores(screen *ebiten.Image, playerData []component.PlayerData) {
-	leaderboardEntries := make([]LeaderboardEntry, len(playerData))
-	query := donburi.NewQuery(filter.Contains(component.Player))
-	for entity := range query.Iter(self.simulation.ECS.World) {
-
-		if entity.HasComponent(component.Player) {
-			player := component.Player.Get(entity)
-
-			for i, player := range playerData {
-				leaderboardEntries[i] = LeaderboardEntry{
-					Username: player.Name,
-					Score:    player.Score,
-				}
-			}
-
-			log.Print(leaderboardEntries)
-			log.Print(player.Name, " ", player.Score)
-		}
+func (self *ArenaScene) getScores() []leaderboardEntry {
+	entries := []leaderboardEntry{}
+	for player := range donburi.NewQuery(filter.Contains(component.Player)).Iter(self.simulation.ECS.World) {
+		data := component.Player.Get(player)
+		entries = append(entries, leaderboardEntry{
+			Name:  data.Name,
+			Score: data.Score,
+		})
 	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Score > entries[j].Score
+	})
+
+	return entries
 }
 
 func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
-	self.scores(screen, []component.PlayerData{})
-
-	// Input handling for mouse scroll
-	_, wheelY := ebiten.Wheel()            // Get the mouse scroll input
-	leaderboardScrollOffset -= wheelY * 10 // Adjust offset based on scroll direction and speed
-	visibleRows := 5
-	startY := 290
-
-	// Clamp the scroll offset to prevent out-of-bounds scrolling
-	maxOffset := float64(len(self.playerName)*70 - self.config.ScreenHeight/2)
-	if leaderboardScrollOffset < 0 {
-		leaderboardScrollOffset = 0
-	}
-	if leaderboardScrollOffset > maxOffset {
-		leaderboardScrollOffset = maxOffset
-	}
-
-	// Sort LeaderboardData
-	sort.SliceStable(self.leaderboardData, func(i, j int) bool {
-		return self.leaderboardData[i].Score > self.leaderboardData[j].Score
-	})
+	// Overlay background
+	overlay := ebiten.NewImage(self.config.ScreenWidth, self.config.ScreenHeight)
+	overlay.Fill(color.Black)
+	opts := &ebiten.DrawImageOptions{}
+	opts.ColorScale.ScaleAlpha(0.8)
+	screen.DrawImage(overlay, opts)
 
 	// Draw the Title box and Title
 	opts1 := &ebiten.DrawImageOptions{}
@@ -502,32 +478,24 @@ func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
 	lineSpacing := 10
 
 	drawText(screen, "Leaderboard", fontface, 50, 550, 85, lineSpacing)
+	drawText(screen, "Top 5 Players", fontface, 40, 550, 200, lineSpacing)
 
-	// Draw the leaderboard box for the rankings
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 3}), 50, 32, 0, 150, 165, [4]float32{1, 1, 1, 1})
-	drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 50, 32, 0, 150, 165, [4]float32{0.25, 0.25, 0.25, 1})
+	// Fetch leaderboard entries
+	entries := self.getScores()
 
-	// // Iterate and render leaderboard entries
-	for i, entry := range self.leaderboardData {
-		y := float64(startY) + float64(i*70) - leaderboardScrollOffset
-
-		if y < 150 || y > float64(self.config.ScreenHeight)-50 {
-			continue
+	// Draw the leaderboard rows
+	startY := 290
+	for i, entry := range entries {
+		if i > 5 {
+			break
 		}
+		y := float64(startY) + float64(i*70)
 
 		drawTransformedImage(screen, assets.Borders.GetTile(assets.TileIndex{X: 0, Y: 1}), 38, 4, 0, 255, float64(y), [4]float32{0.25, 0.25, 0.25, 1})
 		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: (i % 2) + 7, Y: 0}), 7, 8, 0, 255, float64(y), [4]float32{0.8, 0.8, 0.8, 1})
 		drawText(screen, fmt.Sprintf("%d", i+1), fontface, 35, 283, float64(y+32), lineSpacing)
-		drawText(screen, entry.Username, fontface, 50, 440, float64(y+32), lineSpacing)
+		drawText(screen, entry.Name, fontface, 50, 440, float64(y+32), lineSpacing)
 		drawText(screen, fmt.Sprintf("%d", entry.Score), fontface, 50, 740, float64(y+32), lineSpacing)
-	}
-
-	// Scroll indicators
-	if self.scrollOffset > 0 {
-		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 8, Y: 0}), 7, 8, 0, 255, 250, [4]float32{1, 1, 1, 1})
-	}
-	if self.scrollOffset+visibleRows < len(self.leaderboardData) {
-		drawTransformedImage(screen, assets.Arrows.GetTile(assets.TileIndex{X: 7, Y: 0}), 7, 8, 0, 255, 650, [4]float32{1, 1, 1, 1})
 	}
 }
 
