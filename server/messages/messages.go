@@ -58,6 +58,10 @@ type EventPlayerDisconnected struct {
 	PlayerId types.PlayerId
 }
 
+type EventPlayerFireBullet struct {
+	PlayerId types.PlayerId
+}
+
 type EventUpdateHealth struct {
 	PlayerId types.PlayerId // The player whose health is being updated
 	Health   float64        // The updated health value of the player

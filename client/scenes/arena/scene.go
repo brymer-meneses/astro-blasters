@@ -185,14 +185,8 @@ func (self *ArenaScene) handleInput() {
 		sendMove(types.PlayerStopRotateCounterClockwise)
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeySpace) {
-		now := time.Now()
-		if self.lastFireTime.IsZero() || now.Sub(self.lastFireTime) >= 150*time.Millisecond {
-			sendMove(types.PlayerStartFireBullet)
-			self.lastFireTime = now
-		} else {
-			sendMove(types.PlayerStopFireBullet)
-		}
+	if inpututil.IsKeyJustPressed(ebiten.KeySpace) {
+		sendMove(types.PlayerStartFireBullet)
 	}
 	if inpututil.IsKeyJustReleased(ebiten.KeySpace) {
 		sendMove(types.PlayerStopFireBullet)
@@ -432,6 +426,12 @@ func (self *ArenaScene) receiveServerUpdates() {
 				self.deathScene = NewDeathScene(self.config)
 				self.isAlive = false
 			}
+		case "EventPlayerFireBullet":
+			var fireBullet messages.EventPlayerFireBullet
+			if err := rpc.DecodeExpectedMessage(message, &fireBullet); err != nil {
+				continue
+			}
+			self.simulation.RegisterPlayerFire(self.simulation.FindCorrespondingPlayer(fireBullet.PlayerId))
 		case "EventPlayerRespawned":
 			var playerRespawn messages.EventPlayerRespawned
 			if err := rpc.DecodeExpectedMessage(message, &playerRespawn); err != nil {
