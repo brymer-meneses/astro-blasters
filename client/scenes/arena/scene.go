@@ -421,6 +421,7 @@ func (self *ArenaScene) receiveServerUpdates(controller *scenes.AppController) {
 				self.deathScene = NewDeathScene(self.config)
 				self.isAlive = false
 			}
+			controller.PlaySfx(assets.Explosion)
 		case "EventPlayerFireBullet":
 			var event messages.EventPlayerFireBullet
 			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
