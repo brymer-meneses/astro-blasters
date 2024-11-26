@@ -254,7 +254,7 @@ func (self *ArenaScene) drawEntities(screen *ebiten.Image) {
 				self.drawPointingArrow(screen, enemyPosition)
 			} else {
 				opts := &text.DrawOptions{}
-				opts.GeoM.Translate(5, 5)
+				opts.GeoM.Translate(10, 10)
 				text.Draw(screen, fmt.Sprintf("Score %d", player.Score), &text.GoTextFace{Source: assets.Munro, Size: 20}, opts)
 			}
 
