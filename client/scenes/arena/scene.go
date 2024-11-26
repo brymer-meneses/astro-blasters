@@ -490,7 +490,7 @@ func (self *ArenaScene) showLeaderboard(screen *ebiten.Image) {
 	// Draw the leaderboard rows
 	startY := 290
 	for i, entry := range entries {
-		if i > 5 {
+		if i > 4 {
 			break
 		}
 		y := float64(startY) + float64(i*70)
