@@ -1,12 +1,12 @@
 package game
 
 import (
+	"astro-blasters/assets"
+	"astro-blasters/game/component"
+	"astro-blasters/game/types"
 	"log"
 	"math"
 	"math/rand"
-	"space-shooter/assets"
-	"space-shooter/game/component"
-	"space-shooter/game/types"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"

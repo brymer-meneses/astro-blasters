@@ -1,8 +1,8 @@
 package messages
 
 import (
-	"space-shooter/game/component"
-	"space-shooter/game/types"
+	"astro-blasters/game/component"
+	"astro-blasters/game/types"
 )
 
 type PlayerData struct {

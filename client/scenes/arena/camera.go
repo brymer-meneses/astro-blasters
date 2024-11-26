@@ -1,9 +1,9 @@
 package arena
 
 import (
+	"astro-blasters/client/config"
+	"astro-blasters/game/component"
 	"math"
-	"space-shooter/client/config"
-	"space-shooter/game/component"
 )
 
 type Camera struct {

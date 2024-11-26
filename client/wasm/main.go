@@ -3,10 +3,10 @@
 package main
 
 import (
+	"astro-blasters/client"
+	"astro-blasters/client/config"
 	"fmt"
 	"log"
-	"space-shooter/client"
-	"space-shooter/client/config"
 	"strings"
 	"syscall/js"
 )

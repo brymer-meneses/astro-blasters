@@ -1,7 +1,7 @@
 package common
 
 import (
-	"space-shooter/assets"
+	"astro-blasters/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )

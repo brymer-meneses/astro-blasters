@@ -1,7 +1,7 @@
 package component
 
 import (
-	"space-shooter/game/types"
+	"astro-blasters/game/types"
 
 	"github.com/yohamta/donburi"
 )

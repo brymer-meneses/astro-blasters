@@ -1,11 +1,11 @@
 package menu
 
 import (
-	"space-shooter/assets"
-	"space-shooter/client/config"
-	"space-shooter/client/scenes"
-	"space-shooter/client/scenes/common"
-	"space-shooter/client/scenes/submenu"
+	"astro-blasters/assets"
+	"astro-blasters/client/config"
+	"astro-blasters/client/scenes"
+	"astro-blasters/client/scenes/common"
+	"astro-blasters/client/scenes/submenu"
 
 	"sync"
 	"time"

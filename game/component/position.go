@@ -1,7 +1,9 @@
 package component
 
-import "github.com/yohamta/donburi"
-import "math"
+import (
+	"github.com/yohamta/donburi"
+	"math"
+)
 
 type PositionData struct {
 	X     float64

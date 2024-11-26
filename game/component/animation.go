@@ -1,7 +1,7 @@
 package component
 
 import (
-	"space-shooter/assets"
+	"astro-blasters/assets"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/yohamta/donburi"

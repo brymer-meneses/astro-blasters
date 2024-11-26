@@ -1,15 +1,15 @@
 package main
 
 import (
+	"astro-blasters/client"
+	"astro-blasters/client/config"
+	"astro-blasters/server"
 	"bytes"
 	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path"
-	"space-shooter/client"
-	"space-shooter/client/config"
-	"space-shooter/server"
 	"strings"
 
 	"github.com/spf13/cobra"

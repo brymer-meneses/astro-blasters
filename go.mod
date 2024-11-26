@@ -1,4 +1,4 @@
-module space-shooter
+module astro-blasters
 
 go 1.23
 

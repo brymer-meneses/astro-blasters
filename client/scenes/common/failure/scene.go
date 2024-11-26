@@ -1,10 +1,10 @@
 package failure
 
 import (
+	"astro-blasters/assets"
+	"astro-blasters/client/config"
+	"astro-blasters/client/scenes"
 	"os"
-	"space-shooter/assets"
-	"space-shooter/client/config"
-	"space-shooter/client/scenes"
 	"sync"
 	"time"
 

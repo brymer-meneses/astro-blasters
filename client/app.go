@@ -1,11 +1,11 @@
 package client
 
 import (
+	"astro-blasters/client/config"
+	"astro-blasters/client/scenes"
+	"astro-blasters/client/scenes/common/failure"
+	"astro-blasters/client/scenes/menu"
 	"bytes"
-	"space-shooter/client/config"
-	"space-shooter/client/scenes"
-	"space-shooter/client/scenes/common/failure"
-	"space-shooter/client/scenes/menu"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -37,7 +37,7 @@ func NewApp(config *config.ClientConfig) *App {
 
 func (self *App) Run() error {
 	ebiten.SetWindowSize(self.config.ScreenWidth, self.config.ScreenHeight)
-	ebiten.SetWindowTitle("Space Shooter")
+	ebiten.SetWindowTitle("Astro Blasters")
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	return ebiten.RunGame(self)

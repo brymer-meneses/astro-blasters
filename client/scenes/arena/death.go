@@ -1,9 +1,9 @@
 package arena
 
 import (
+	"astro-blasters/assets"
+	"astro-blasters/client/config"
 	"image/color"
-	"space-shooter/assets"
-	"space-shooter/client/config"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/text/v2"

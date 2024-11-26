@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
+	"astro-blasters/game"
+	"astro-blasters/game/component"
+	"astro-blasters/game/types"
+	"astro-blasters/rpc"
+	"astro-blasters/server/messages"
 	"log"
 	"net/http"
-	"space-shooter/game"
-	"space-shooter/game/component"
-	"space-shooter/game/types"
-	"space-shooter/rpc"
-	"space-shooter/server/messages"
 
 	"github.com/coder/websocket"
 	"github.com/yohamta/donburi"
