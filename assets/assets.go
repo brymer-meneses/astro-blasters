@@ -27,7 +27,10 @@ var GreenExhaustAnimation [4]SpriteSheet
 
 var Bullet *ebiten.Image
 
-var BlueExplosion SpriteSheet
+var OrangeExplosion SpriteSheet
+
+//go:embed sfx/explosion.wav
+var Explosion []byte
 
 //go:embed sfx/laser.wav
 var LaserAudio []byte
@@ -79,7 +82,7 @@ func init() {
 		)
 	}
 
-	BlueExplosion = NewSpriteSheet(
+	OrangeExplosion = NewSpriteSheet(
 		Miscellaneous,
 		TileIndex{12, 6},
 		TileIndex{11, 6},

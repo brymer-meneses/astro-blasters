@@ -268,7 +268,7 @@ func (self *GameSimulation) spawnExplosion(position *component.PositionData) {
 	)
 	component.Animation.SetValue(
 		explosion,
-		component.NewAnimationData(assets.BlueExplosion, 2),
+		component.NewAnimationData(assets.OrangeExplosion, 2),
 	)
 	component.Expirable.SetValue(
 		explosion,
