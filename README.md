@@ -1,4 +1,4 @@
-# Space-Shooter
+# Astro Blasters
 
 ## Running the Game
 
