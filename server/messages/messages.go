@@ -6,9 +6,10 @@ import (
 )
 
 type PlayerData struct {
-	PlayerId   types.PlayerId
-	PlayerName string
-	Position   component.PositionData
+	PlayerId    types.PlayerId
+	PlayerName  string
+	Position    component.PositionData
+	IsConnected bool
 }
 
 type ConnectionHandshake struct {

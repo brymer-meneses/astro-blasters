@@ -98,12 +98,13 @@ func (self *ArenaScene) Configure(controller *scenes.AppController) error {
 	for _, player := range response.PlayerData {
 		if player.PlayerId == response.PlayerId {
 			// Focus the camera on the player.
-			self.player = self.simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+			self.player = self.simulation.CreatePlayer(player.PlayerId, &player.Position, player.PlayerName, player.IsConnected)
 			self.playerId = player.PlayerId
 			self.camera.FocusTarget(player.Position)
 			continue
 		}
-		self.simulation.SpawnPlayer(player.PlayerId, &player.Position, player.PlayerName)
+
+		self.simulation.CreatePlayer(player.PlayerId, &player.Position, player.PlayerName, player.IsConnected)
 	}
 
 	go self.receiveServerUpdates(controller)
@@ -386,7 +387,7 @@ func (self *ArenaScene) receiveServerUpdates(controller *scenes.AppController) {
 			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {
 				continue
 			}
-			self.simulation.SpawnPlayer(event.PlayerId, &event.Position, event.PlayerName)
+			self.simulation.CreatePlayer(event.PlayerId, &event.Position, event.PlayerName, true)
 		case "EventPlayerDisconnected":
 			var event messages.EventPlayerDisconnected
 			if err := rpc.DecodeExpectedMessage(message, &event); err != nil {

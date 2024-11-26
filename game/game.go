@@ -220,7 +220,7 @@ func (self *GameSimulation) RespawnPlayer(player *donburi.Entry, newPosition com
 	component.Position.SetValue(player, newPosition)
 }
 
-func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *component.PositionData, playerName string) *donburi.Entry {
+func (self *GameSimulation) CreatePlayer(playerId types.PlayerId, position *component.PositionData, playerName string, IsConnected bool) *donburi.Entry {
 	entity := self.ECS.World.Create(component.Player, component.Position, component.Animation, component.Sprite)
 	player := self.ECS.World.Entry(entity)
 
@@ -229,7 +229,7 @@ func (self *GameSimulation) SpawnPlayer(playerId types.PlayerId, position *compo
 		Id:          playerId,
 		Health:      100,
 		IsAlive:     true,
-		IsConnected: true,
+		IsConnected: IsConnected,
 	}
 
 	component.Player.SetValue(player, playerData)

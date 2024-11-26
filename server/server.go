@@ -239,7 +239,7 @@ func (self *Server) establishConnection(ctx context.Context, connection *websock
 		isConnected: true,
 	}
 
-	self.simulation.SpawnPlayer(playerId, &position, connectionHandshake.PlayerName)
+	self.simulation.CreatePlayer(playerId, &position, connectionHandshake.PlayerName, true)
 
 	playerData := self.getPlayerData()
 	err := rpc.WriteMessage(
@@ -272,15 +272,12 @@ func (self *Server) getPlayerData() []messages.PlayerData {
 	for player := range query.Iter(self.simulation.ECS.World) {
 		data := component.Player.Get(player)
 
-		if !data.IsConnected {
-			continue
-		}
-
 		enemyData = append(enemyData,
 			messages.PlayerData{
-				PlayerId:   data.Id,
-				PlayerName: data.Name,
-				Position:   *component.Position.Get(player),
+				PlayerId:    data.Id,
+				PlayerName:  data.Name,
+				IsConnected: data.IsConnected,
+				Position:    *component.Position.Get(player),
 			},
 		)
 	}
